@@ -700,12 +700,14 @@ end
 function LambdaTeams:TeamHasSalvageBank( teamName )
     if !teamName or teamName == "" then return false end
 
-    for _, kp in ipairs( ents_FindByClass( "lambda_koth_point" ) ) do
-        if !IsValid( kp ) then continue end
-        if !kp:GetIsCaptured() then continue end
+    for _, bank in ipairs( ents_FindByClass( "lambda_salvage_bank" ) ) do
+        if !IsValid( bank ) then continue end
+        if !bank:GetIsCaptured() then continue end
 
-        local capTeam = kp.GetCapturerName and kp:GetCapturerName() or ""
-        if capTeam == teamName then return true end
+        local capTeam = bank.GetCapturerName and bank:GetCapturerName() or ""
+        if capTeam == teamName then
+            return true
+        end
     end
 
     return false
@@ -714,14 +716,14 @@ end
 function LambdaTeams:GetBestSalvageCaptureBank( teamName, fromPos )
     if !teamName or teamName == "" then return end
 
-    local bestPoint, bestScore = nil, -math.huge
+    local bestBank, bestScore = nil, -math.huge
 
-    for _, kp in ipairs( ents_FindByClass( "lambda_koth_point" ) ) do
-        if !IsValid( kp ) then continue end
+    for _, bank in ipairs( ents_FindByClass( "lambda_salvage_bank" ) ) do
+        if !IsValid( bank ) then continue end
 
-        local captured = ( kp.GetIsCaptured and kp:GetIsCaptured() ) or false
-        local capTeam = ( kp.GetCapturerName and kp:GetCapturerName() ) or ""
-        local score = -fromPos:DistToSqr( kp:GetPos() )
+        local captured = ( bank.GetIsCaptured and bank:GetIsCaptured() ) or false
+        local capTeam = ( bank.GetCapturerName and bank:GetCapturerName() ) or ""
+        local score = -fromPos:DistToSqr( bank:GetPos() )
 
         if !captured or capTeam == "" or capTeam == "Neutral" then
             score = score + 8000000
@@ -733,11 +735,11 @@ function LambdaTeams:GetBestSalvageCaptureBank( teamName, fromPos )
 
         if score > bestScore then
             bestScore = score
-            bestPoint = kp
+            bestBank = bank
         end
     end
 
-    return bestPoint
+    return bestBank
 end
 
 local function LTS_SalvageBankRange()
@@ -948,16 +950,16 @@ function LambdaTeams:GetNearestSalvageBank( teamName, fromPos )
     if !teamName or teamName == "" then return end
 
     local nearest, nearestDist
-    for _, kp in ipairs( ents_FindByClass( "lambda_koth_point" ) ) do
-        if !IsValid( kp ) then continue end
-        if !kp:GetIsCaptured() then continue end
+    for _, bank in ipairs( ents_FindByClass( "lambda_salvage_bank" ) ) do
+        if !IsValid( bank ) then continue end
+        if !bank:GetIsCaptured() then continue end
 
-        local capTeam = kp.GetCapturerName and kp:GetCapturerName() or nil
+        local capTeam = bank.GetCapturerName and bank:GetCapturerName() or nil
         if capTeam != teamName then continue end
 
-        local dist = fromPos:DistToSqr( kp:GetPos() )
+        local dist = fromPos:DistToSqr( bank:GetPos() )
         if !nearestDist or dist < nearestDist then
-            nearest = kp
+            nearest = bank
             nearestDist = dist
         end
     end
@@ -1558,6 +1560,11 @@ local function StopGameMatch()
         kp:BecomeNeutral()
     end
 
+	for _, bank in ipairs( ents_FindByClass( "lambda_salvage_bank" ) ) do
+		if !IsValid( bank ) or !bank:GetIsCaptured() then continue end
+		bank:BecomeNeutral()
+	end
+
     for _, ent in ipairs( table_Add( GetLambdaPlayers(), player_GetAll() ) ) do
         if IsValid( ent ) then
             LambdaTeams:SetSalvageCarry( ent, 0 )
@@ -1750,9 +1757,9 @@ local function StartGamemode( ply, gameIndex, stopSnds )
 			LambdaPlayers_Notify( ply, "The assault gamemode requires at least one Assault point!", 1, "buttons/button10.wav" )
 			return
 		end
-    elseif gameIndex == 7 and #ents_FindByClass( "lambda_koth_point" ) == 0 then
-        LambdaPlayers_Notify( ply, "The salvage run gamemode requires at least one KOTH point to act as a delivery bank!", 1, "buttons/button10.wav" )
-        return
+	elseif gameIndex == 7 and #ents_FindByClass( "lambda_salvage_bank" ) == 0 then
+		LambdaPlayers_Notify( ply, "The salvage run gamemode requires at least one Salvage Run bank!", 1, "buttons/button10.wav" )
+		return
     elseif gameIndex == 8 and #ents_FindByClass( "lambda_sabotage_site" ) < 2 then
         LambdaPlayers_Notify( ply, "The sabotage gamemode requires at least two sabotage sites!", 1, "buttons/button10.wav" )
         return
@@ -1833,14 +1840,20 @@ local function StartGamemode( ply, gameIndex, stopSnds )
 				ap:BecomeNeutral()
 			end
 		end
+	elseif gameIndex == 7 then
+		for _, bank in ipairs( ents_FindByClass( "lambda_salvage_bank" ) ) do
+			if IsValid( bank ) and bank:GetIsCaptured() then
+				bank:BecomeNeutral()
+			end
+		end
 	else
 		for _, kp in ipairs( ents_FindByClass( "lambda_koth_point" ) ) do
-			if kp:GetIsCaptured() then
+			if IsValid( kp ) and kp:GetIsCaptured() then
 				kp:BecomeNeutral()
 			end
 		end
 	end
-
+	
     if gameIndex == 5 then
         LambdaTeams.HQ_State = nil
         LambdaTeams.HQ_Current = nil
