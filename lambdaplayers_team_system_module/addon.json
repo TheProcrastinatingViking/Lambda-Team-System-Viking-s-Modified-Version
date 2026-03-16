@@ -1,0 +1,12 @@
+{
+  "title": "Lambda Team System | Viking's Modified Version",
+  "type": "npc",
+  "tags": [
+    "fun",
+    "realism",
+    "comic"
+  ],
+  "ignore": [
+    ".gitattributes"
+  ]
+}
