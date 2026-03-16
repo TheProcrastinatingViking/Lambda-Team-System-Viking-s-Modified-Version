@@ -263,6 +263,15 @@ if ( CLIENT ) then
 		end
 	end
 	
+	local function LTS_GetBankObjectives()
+		local banks = {}
+
+		table_Add( banks, ents_FindByClass( "lambda_koth_point" ) )
+		table_Add( banks, ents_FindByClass( "lambda_salvage_bank" ) )
+
+		return banks
+	end
+
     local clientSnds = {}
 
     net.Receive( "lambda_teamsystem_playclientsound", function()
@@ -598,7 +607,7 @@ if ( CLIENT ) then
 			local fadeInStart = ( kothIconFadeStartDist and kothIconFadeStartDist:GetInt() ) or 2500
 			local fadeOutEnd = ( kothIconFadeEndDist and kothIconFadeEndDist:GetInt() ) or 1000
 
-			for _, pointEnt in ipairs( ents_FindByClass( "lambda_koth_point" ) ) do
+			for _, pointEnt in ipairs( LTS_GetBankObjectives() ) do
 				if !IsValid( pointEnt ) then continue end
 
 				local iconPos = pointEnt:WorldSpaceCenter()
