@@ -608,7 +608,7 @@ if ( SERVER ) then
 		return bestSite
 	end
 
-	local WeightedPick, EnsureRole_AD, EnsureRole_CTF, ObjectiveStuckTick
+	local WeightedPick, EnsureRole_AD, EnsureRole_CTF, EnsureRole_AS, EnsureRole_SR, ObjectiveStuckTick
 
     local function LTS_GetAggressionFrac()
         local val = ( teamAggression and teamAggression:GetFloat() or 50 )
@@ -864,8 +864,6 @@ if ( SERVER ) then
 		
 		-- Are you tired of seeing lambdas doing other BULLSHIT rather than playing objectives? This is gonna rock your socks!
         local gmID = (LambdaTeams and LambdaTeams.GetCurrentGamemodeID and LambdaTeams:GetCurrentGamemodeID()) or 0
-			EnsureRole_AD(self)
-			local role = self.l_AD_Role
 
 		if gmID == 1 and adBotObjective:GetBool() then
 			if (self.l_ObjRetryAt or 0) > CurTime() then
@@ -969,7 +967,6 @@ if ( SERVER ) then
 			self.l_AD_TargetPoint = nil
 			self.l_AD_TargetPos = nil
 		end
-
 
 		if gmID == 2 and ctfBotObjective:GetBool() then
 			if (self.l_ObjRetryAt or 0) > CurTime() then
@@ -1158,9 +1155,6 @@ if ( SERVER ) then
 			self.l_CTF_TargetPos = nil
 		end
 
-
-
-
 		if gmID != 0 and CurTime() >= ( self.l_NextEnemyTeamSearchT or 0 ) then
 			self.l_NextEnemyTeamSearchT = CurTime() + Rand( 0.1, 0.5 )
 
@@ -1263,7 +1257,6 @@ if ( SERVER ) then
         elseif gmID != 0 then
             self.l_TeamMovePos = nil
         end
-		
 		
         if gmID == 5 and hqBotObjective:GetBool() then
             if (self.l_ObjRetryAt or 0) <= CurTime() and ( (hqBotObjectiveInCombat:GetBool()) or (not self:InCombat()) ) then
@@ -1514,6 +1507,28 @@ if ( SERVER ) then
 			{ "attack", adRole_AttackWeight:GetInt() },
 			{ "roam",   adRole_RoamWeight:GetInt()   },
 		})
+	end
+
+	EnsureRole_CTF = function( self, myFlagAtHome )
+		if self.l_CTF_Role and ( self.l_CTF_RoleUntil or 0 ) > CurTime() then return end
+		self.l_CTF_RoleUntil = CurTime() + math.Rand( 20, 45 )
+
+		local defendW = ctfRole_DefendWeight:GetInt()
+		local attackW = ctfRole_AttackWeight:GetInt()
+		local escortW = ctfRole_EscortWeight:GetInt()
+		local huntW   = ctfRole_HuntWeight:GetInt()
+
+		local defendBoost = ( ctfDefendBoostWhenFlagTaken and ctfDefendBoostWhenFlagTaken:GetInt() ) or 0
+		if !myFlagAtHome and defendBoost > 0 then
+			defendW = defendW + defendBoost
+		end
+
+		self.l_CTF_Role = WeightedPick( {
+			{ "defend", defendW },
+			{ "attack", attackW },
+			{ "escort", escortW },
+			{ "hunt",   huntW   },
+		} )
 	end
 
 	EnsureRole_AS = function( self )
