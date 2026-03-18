@@ -8,6 +8,66 @@ LambdaTeams.AOSExempt   = LambdaTeams.AOSExempt   or {}
 local ALLIANCE_FILE   = "lambdaplayers/team_alliances.json"
 local AOS_EXEMPT_FILE = "lambdaplayers/aos_exempt.json"
 
+function LambdaTeams:LoadAlliances()
+    EnsureDataFolder()
+
+    if not file.Exists(ALLIANCE_FILE, "DATA") then
+        LambdaTeams.AlliedTeams = {}
+        WriteJSON(ALLIANCE_FILE, {})
+        print("ALERT: The Team Alliances file is being generated.")
+        return
+    end
+
+    local data = ReadJSON(ALLIANCE_FILE)
+
+    if istable(data) then
+        for k, v in pairs(data) do
+            if istable(v) then
+                for k2, _ in pairs(v) do
+                    v[tostring(k2)] = true
+                end
+            end
+        end
+
+        LambdaTeams.AlliedTeams = data
+        print("Loaded alliances: " .. table.Count(data))
+    else
+        print("WARNING: Alliance file corrupted. Resetting...")
+        LambdaTeams.AlliedTeams = {}
+        WriteJSON(ALLIANCE_FILE, {})
+    end
+end
+
+function LambdaTeams:LoadAOSExempt()
+    EnsureDataFolder()
+
+    if not file.Exists(AOS_EXEMPT_FILE, "DATA") then
+        LambdaTeams.AOSExempt = {}
+        WriteJSON(AOS_EXEMPT_FILE, {})
+        print("ALERT: The Attack on Sight Exemptions file is being generated.")
+        return
+    end
+
+    local data = ReadJSON(AOS_EXEMPT_FILE)
+
+    if istable(data) then
+        for k, v in pairs(data) do
+            if istable(v) then
+                for k2, _ in pairs(v) do
+                    v[tostring(k2)] = true
+                end
+            end
+        end
+
+        LambdaTeams.AOSExempt = data
+        print("Loaded AOS exemptions: " .. table.Count(data))
+    else
+        print("WARNING: AOS exempt file corrupted. Resetting...")
+        LambdaTeams.AOSExempt = {}
+        WriteJSON(AOS_EXEMPT_FILE, {})
+    end
+end
+
 local function EnsureDataFolder()
     if not file.Exists("lambdaplayers", "DATA") then
         file.CreateDir("lambdaplayers")
@@ -39,7 +99,7 @@ function LambdaTeams:LoadAlliances()
 
     if not file.Exists(ALLIANCE_FILE, "DATA") then
         LambdaTeams.AlliedTeams = {}
-        print("[LTS] No alliance save file found. Starting fresh.")
+        print("ALERT: The Team Alliances file is now loading.")
         return
     end
 
@@ -55,9 +115,9 @@ function LambdaTeams:LoadAlliances()
         end
 
         LambdaTeams.AlliedTeams = data
-        print("[LTS] Loaded alliances: " .. table.Count(data))
+        print("Loaded alliances: " .. table.Count(data))
     else
-        print("[LTS] WARNING: Alliance file corrupted. Resetting...")
+        print("WARNING: Alliance file corrupted. Resetting...")
         LambdaTeams.AlliedTeams = {}
     end
 end
@@ -75,7 +135,7 @@ function LambdaTeams:SaveAlliances()
     end
 
     WriteJSON(ALLIANCE_FILE, safe)
-    print("[LTS] Team alliances saved (" .. tostring(table.Count(safe)) .. ")")
+    print("Team alliances saved (" .. tostring(table.Count(safe)) .. ")")
 end
 
 function LambdaTeams:LoadAOSExempt()
@@ -83,7 +143,7 @@ function LambdaTeams:LoadAOSExempt()
 
     if not file.Exists(AOS_EXEMPT_FILE, "DATA") then
         LambdaTeams.AOSExempt = {}
-        print("[LTS] No AOS exempt file found. Starting fresh file...")
+        print("ALERT: The Attack on Sight Exemption file is now loading.")
         return
     end
 
@@ -99,9 +159,9 @@ function LambdaTeams:LoadAOSExempt()
         end
 
         LambdaTeams.AOSExempt = data
-        print("[LTS] Loaded AOS exemptions: " .. table.Count(data))
+        print("Loaded AOS exemptions: " .. table.Count(data))
     else
-        print("[LTS] WARNING: AOS exempt file corrupted. Resetting...")
+        print("WARNING: AOS exempt file corrupted. Resetting...")
         LambdaTeams.AOSExempt = {}
     end
 end
@@ -119,7 +179,7 @@ function LambdaTeams:SaveAOSExempt()
     end
 
     WriteJSON(AOS_EXEMPT_FILE, safe)
-    print("[LTS] AOS exemptions saved (" .. tostring(table.Count(safe)) .. ")")
+    print("AOS exemptions saved (" .. tostring(table.Count(safe)) .. ")")
 end
 
 function LambdaTeams:IsAllied(teamA, teamB)
