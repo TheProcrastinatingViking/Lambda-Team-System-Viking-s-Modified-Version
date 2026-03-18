@@ -365,6 +365,11 @@ local function LTS_AssaultNeedsTwoTeams()
 end
 
 local function LTS_AssaultStartOwned()
+    local cv = GetConVar( "lambdaplayers_teamsystem_assault_startowned" )
+    if cv then
+        return cv:GetBool()
+    end
+
     return ( assaultStartOwned and assaultStartOwned:GetBool() ) or false
 end
 
@@ -372,21 +377,53 @@ local function LTS_AssaultAutoOrder()
     return ( assaultAutoOrder and assaultAutoOrder:GetBool() ) or false
 end
 
+local function LTS_NormalizeAssaultPointName( name )
+    name = string.Trim( tostring( name or "" ) )
+    name = string.gsub( name, "%s+", " " )
+    return string.lower( name )
+end
+
+local function LTS_GetAssaultPointName( point )
+    if !IsValid( point ) then return "" end
+
+    local candidates = {
+        ( point.GetPointName and point:GetPointName() ) or nil,
+        point.CustomName,
+        point.PointName,
+        point.LTS_PointName,
+        point.AssaultPointName,
+        point.GetName and point:GetName() or nil
+    }
+
+    for _, name in ipairs( candidates ) do
+        local normalized = LTS_NormalizeAssaultPointName( name )
+        if normalized != "" then
+            return normalized
+        end
+    end
+
+    return ""
+end
+
 local function LTS_SortAssaultPointsStable( points )
     table.sort( points, function( a, b )
         if !IsValid( a ) then return false end
         if !IsValid( b ) then return true end
 
+        local aName = LTS_GetAssaultPointName( a )
+        local bName = LTS_GetAssaultPointName( b )
+
+        if aName != "" and bName == "" then return true end
+        if aName == "" and bName != "" then return false end
+
+        if aName != "" and bName != "" and aName != bName then
+            return aName < bName
+        end
+
         local aID = ( a.GetCreationID and a:GetCreationID() ) or 0
         local bID = ( b.GetCreationID and b:GetCreationID() ) or 0
         if aID != bID then
             return aID < bID
-        end
-
-        local aName = string.lower( string.Trim( ( a.GetPointName and a:GetPointName() ) or "" ) )
-        local bName = string.lower( string.Trim( ( b.GetPointName and b:GetPointName() ) or "" ) )
-        if aName != bName then
-            return aName < bName
         end
 
         return a:EntIndex() < b:EntIndex()
@@ -407,9 +444,9 @@ local function LTS_OrderAssaultPoints( points )
     local wanted = {}
 
     for token in string.gmatch( rawOrder, "([^,;]+)" ) do
-        token = string.Trim( token )
+        token = LTS_NormalizeAssaultPointName( token )
         if token != "" then
-            wanted[ #wanted + 1 ] = string.lower( token )
+            wanted[ #wanted + 1 ] = token
         end
     end
 
@@ -421,7 +458,7 @@ local function LTS_OrderAssaultPoints( points )
     for _, pt in ipairs( ordered ) do
         if !IsValid( pt ) then continue end
 
-        local pointName = string.lower( string.Trim( ( pt.GetPointName and pt:GetPointName() ) or "" ) )
+        local pointName = LTS_GetAssaultPointName( pt )
         if pointName == "" then continue end
 
         byName[ pointName ] = byName[ pointName ] or {}
@@ -431,8 +468,8 @@ local function LTS_OrderAssaultPoints( points )
     local finalOrder = {}
     local used = {}
 
-    for _, pointName in ipairs( wanted ) do
-        local matches = byName[ pointName ]
+    for _, wantedName in ipairs( wanted ) do
+        local matches = byName[ wantedName ]
         if !matches then continue end
 
         for _, pt in ipairs( matches ) do
@@ -484,19 +521,47 @@ local function LTS_ClearAssaultFlags()
     end
 end
 
+local function LTS_ColorToVector( clr )
+    if isvector( clr ) then return clr end
+    if !clr then return Vector( 1, 1, 1 ) end
+
+    if clr.ToVector then
+        return clr:ToVector()
+    end
+
+    if clr.r and clr.g and clr.b then
+        return Vector( clr.r / 255, clr.g / 255, clr.b / 255 )
+    end
+
+    return Vector( 1, 1, 1 )
+end
+
 local function LTS_ForceOwnAssaultPoint( point, teamName )
     if !IsValid( point ) or !teamName or teamName == "" then return false end
+
+    local teamClr = LambdaTeams:GetTeamColor( teamName )
+    local clrVec = LTS_ColorToVector( teamClr )
 
     if point.BecomeNeutral then
         point:BecomeNeutral()
     end
+
+    if point.SetIsCaptured then point:SetIsCaptured( true ) end
     if point.SetCapturerName then point:SetCapturerName( teamName ) end
     if point.SetCapturePercent then point:SetCapturePercent( 100 ) end
-    if point.SetIsCaptured then point:SetIsCaptured( true ) end
-    if point.SetCapturerColor then
-        local clr = LambdaTeams:GetTeamColor( teamName )
-        if clr then point:SetCapturerColor( clr ) end
-    end
+    if point.SetCapturerColor then point:SetCapturerColor( clrVec ) end
+    if point.SetContesterTeam then point:SetContesterTeam( "" ) end
+    if point.SetContesterColor then point:SetContesterColor( Vector( 1, 1, 1 ) ) end
+
+    point.IsNonTeamCaptured = false
+    point.OldCapturer = teamName
+    point.OldColor = clrVec
+
+    LTS_SetBoolCompat( point, "LTS_AssaultCaptured", true )
+    LTS_SetStringCompat( point, "LTS_AssaultOwner", teamName )
+    LTS_SetStringCompat( point, "LTS_AssaultContester", "" )
+    LTS_SetIntCompat( point, "LTS_AssaultCapturePercent", 100 )
+
     return true
 end
 
@@ -573,6 +638,16 @@ function LambdaTeams:Assault_Rebuild()
     local points = LTS_GetAssaultPoints()
 	points = LTS_OrderAssaultPoints( points )
 	
+	print( "[LTS Assault] Auto Order:", LTS_AssaultAutoOrder() )
+	print( "[LTS Assault] Manual Order:", ( assaultPointOrder and assaultPointOrder:GetString() ) or "" )
+	print( "[LTS Assault] Start Owned:", LTS_AssaultStartOwned() )
+
+	for i, pt in ipairs( points ) do
+		if IsValid( pt ) then
+			print( "[LTS Assault] Ordered Point #" .. i .. ": " .. tostring( pt:GetPointName() ) )
+		end
+	end
+
     if !points or #points == 0 then
         self.Assault_State = nil
         if SERVER then LTS_ClearAssaultFlags() end
@@ -1835,9 +1910,11 @@ local function StartGamemode( ply, gameIndex, stopSnds )
     LambdaTeams:PlayConVarSound( "lambdaplayers_teamsystem_gamemodes_snd_gamestart", "all" )
 
 	if gameIndex == 6 then
-		for _, ap in ipairs( LTS_GetAssaultPoints() ) do
-			if IsValid( ap ) then
-				ap:BecomeNeutral()
+		if !LTS_AssaultStartOwned() then
+			for _, ap in ipairs( LTS_GetAssaultPoints() ) do
+				if IsValid( ap ) and ap:GetIsCaptured() then
+					ap:BecomeNeutral()
+				end
 			end
 		end
 	elseif gameIndex == 7 then
@@ -1888,6 +1965,15 @@ local function StartGamemode( ply, gameIndex, stopSnds )
     end
 
 	if gameIndex == 6 then
+		LambdaTeams:Assault_Rebuild()
+
+		timer.Simple( 0, function()
+			if GetGlobalInt( "LambdaTeamMatch_GameID", 0 ) != 6 then return end
+			if !LambdaTeams or !LambdaTeams.Assault_Rebuild then return end
+
+			LambdaTeams:Assault_Rebuild()
+		end )
+
 		local attackTeam = LambdaTeams:GetAssaultAttackTeam()
 		local defendTeam = LambdaTeams:GetAssaultDefendTeam()
 
