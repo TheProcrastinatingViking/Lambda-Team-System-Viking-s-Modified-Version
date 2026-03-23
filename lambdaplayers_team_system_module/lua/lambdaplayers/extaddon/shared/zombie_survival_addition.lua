@@ -3,7 +3,7 @@ if SERVER then AddCSLuaFile() end
 if not CreateLambdaConvar or not CreateLambdaConsoleCommand then return end
 if not LambdaTeams then return end
 
-local ZS_GAMEID = 6
+local ZS_GAMEID = 9
 
 local COLOR_TAG = Color(255, 255, 255)
 local COLOR_LTS = Color(140, 220, 255)
@@ -14,11 +14,13 @@ local CV_ZS_SND_MATCHSTART = "lambdaplayers_teamsystem_zs_snd_matchstart"
 local CV_ZS_SND_MATCHEND   = "lambdaplayers_teamsystem_zs_snd_matchend"
 local CV_ZS_SND_ROUNDSTART = "lambdaplayers_teamsystem_zs_snd_roundstart"
 local CV_ZS_SND_ROUNDEND   = "lambdaplayers_teamsystem_zs_snd_roundend"
+local CV_ZS_SND_SPECIALROUNDSTART = "lambdaplayers_teamsystem_zs_snd_specialroundstart"
 
 CreateLambdaConvar( CV_ZS_SND_MATCHSTART, "lambdaplayers/zs/roundstart.mp3", true, true, false, "Sound played when Zombie Survival starts.", 0, 1, { name = "Sound - Match Start", type = "Text", category = "Team System - Zombie Survival" } )
 CreateLambdaConvar( CV_ZS_SND_MATCHEND, "lambdaplayers/zs/matchend.mp3", true, true, false, "Sound played when Zombie Survival ends/stops.", 0, 1, { name = "Sound - Match End", type = "Text", category = "Team System - Zombie Survival" } )
 CreateLambdaConvar( CV_ZS_SND_ROUNDSTART, "lambdaplayers/zs/roundstart.mp3", true, true, false, "Sound played when a round starts.", 0, 1, { name = "Sound - Round Start", type = "Text", category = "Team System - Zombie Survival" } )
 CreateLambdaConvar( CV_ZS_SND_ROUNDEND, "lambdaplayers/zs/roundend.mp3", true, true, false, "Sound played when a round ends.", 0, 1, { name = "Sound - Round End", type = "Text", category = "Team System - Zombie Survival" } )
+CreateLambdaConvar( CV_ZS_SND_SPECIALROUNDSTART, "lambdaplayers/zs/specialroundstart.mp3", true, true, false, "Sound played when a special round starts.", 0, 1, { name = "Sound - Special Round Start", type = "Text", category = "Team System - Zombie Survival" } )
 
 local function ChatAll(...)
     if LambdaPlayers_ChatAdd then
@@ -73,7 +75,7 @@ if SERVER then
             if c ~= "" and not sSeen[c] then sSeen[c] = true special[#special + 1] = c end
         end
 
-        -- YOU SILLY BOY YOU GONNA GET CAUGHT BY THE BOYKISSER CAT IF YOU KEEP UPDATING HIM YOUR POSITION (SPAMMING STRINGS DOESNT HELP WITH THIS GAMEMODE EITHER)
+        -- SPAMMING STRINGS DOESNT HELP WITH THIS GAMEMODE EITHER
         local function JoinCapped(t)
             local out = table.concat(t, ",")
             if #out > 2048 then out = string.sub(out, 1, 2048) end
@@ -198,6 +200,7 @@ local function ZS_StopAllSounds()
     LambdaTeams:StopConVarSound( CV_ZS_SND_MATCHEND )
     LambdaTeams:StopConVarSound( CV_ZS_SND_ROUNDSTART )
     LambdaTeams:StopConVarSound( CV_ZS_SND_ROUNDEND )
+    LambdaTeams:StopConVarSound( CV_ZS_SND_SPECIALROUNDSTART )
 end
 
 local function ZS_PlaySound( sndCvar )
@@ -275,10 +278,26 @@ local function ApplyWeaponRestrictionToPlayer(ply, wepClass)
     end)
 end
 
-local function ApplyWeaponRestrictionToLambda(lb, wepClass)
+local function ZS_SetLambdaSpawnWeapon(lb, wepClass, switchNow)
     if not IsValid(lb) or not lb.IsLambdaPlayer then return end
+
+    wepClass = SafeWeaponClass(wepClass)
     if wepClass == "" then return end
-    if lb.SwitchWeapon then lb:SwitchWeapon(wepClass) end
+
+    if lb.WeaponDataExists and not lb:WeaponDataExists(wepClass) then return end
+
+    lb.l_SpawnWeapon = wepClass
+    if lb.SetNW2String then
+        lb:SetNW2String("lambda_spawnweapon", wepClass)
+    end
+
+    if switchNow and lb.SwitchWeapon then
+        lb:SwitchWeapon(wepClass, true, true)
+    end
+end
+
+local function ApplyWeaponRestrictionToLambda(lb, wepClass)
+    ZS_SetLambdaSpawnWeapon(lb, wepClass, true)
 end
 
 local function ZS_GetParticipantTeam(state, ent)
@@ -396,7 +415,7 @@ local function ZS_CountTrackedWeapons(ply)
     return count
 end
 
-local function ZS_EnforceWeaponLimit(state, ply)
+local function ZS_EnforceWeaponLimit(state, ply, preferredWep)
     if not IsValid(ply) or not ply:IsPlayer() then return end
 
     local limit = math.max(1, state.cvWeaponLimit:GetInt())
@@ -413,9 +432,13 @@ local function ZS_EnforceWeaponLimit(state, ply)
     local active = ply:GetActiveWeapon()
 
     table.sort(tracked, function(a, b)
+        if a == preferredWep then return true end
+        if b == preferredWep then return false end
+
         if a == active then return true end
         if b == active then return false end
-        return a:EntIndex() < b:EntIndex()
+
+        return a:EntIndex() > b:EntIndex()
     end)
 
     for i = limit + 1, #tracked do
@@ -440,6 +463,80 @@ local function ZS_GiveStarterWeapon(state, ply)
             ply:SelectWeapon(starter)
         end
     end)
+end
+
+local function ZS_GiveStarterWeaponToLambda(state, lb)
+    if not IsValid(lb) or not lb.IsLambdaPlayer then return end
+
+    local starter = SafeWeaponClass(state.cvStarterWeaponLambda:GetString())
+    if starter == "" then return end
+
+    ZS_SetLambdaSpawnWeapon(lb, starter, true)
+end
+
+local function ZS_SetParticipantState(ent, enabled)
+    if not IsValid(ent) then return end
+
+    if ent.SetNW2Bool then
+        ent:SetNW2Bool("LTS_ZS_Participant", enabled and true or false)
+    else
+        ent:SetNWBool("LTS_ZS_Participant", enabled and true or false)
+    end
+end
+
+local function ZS_CacheLambdaWeaponState(state, lb)
+    if not IsValid(lb) or not lb.IsLambdaPlayer then return end
+
+    local oldSpawn = SafeWeaponClass(lb.l_SpawnWeapon or (lb.GetNW2String and lb:GetNW2String("lambda_spawnweapon", "")) or "")
+
+    state.cachedLambdaWeapons[lb] = {
+        spawn = oldSpawn
+    }
+
+    if lb.SetExternalVar then
+        lb:SetExternalVar("lts_zs_oldSpawnWeapon", oldSpawn)
+    else
+        lb.lts_zs_oldSpawnWeapon = oldSpawn
+    end
+end
+
+local function ZS_RestoreLambdaWeaponState(state, lb)
+    if not IsValid(lb) or not lb.IsLambdaPlayer then return end
+
+    local cached = state.cachedLambdaWeapons[lb]
+    local spawn = SafeWeaponClass(
+        (cached and cached.spawn)
+        or (lb.GetExternalVar and lb:GetExternalVar("lts_zs_oldSpawnWeapon"))
+        or lb.lts_zs_oldSpawnWeapon
+        or ""
+    )
+
+    if lb.SetExternalVar then
+        lb:SetExternalVar("lts_zs_oldSpawnWeapon", nil)
+    else
+        lb.lts_zs_oldSpawnWeapon = nil
+    end
+
+    if spawn == "" then
+        spawn = "physgun"
+    end
+
+    if lb.WeaponDataExists and not lb:WeaponDataExists(spawn) then
+        spawn = "physgun"
+    end
+
+    lb.l_SpawnWeapon = spawn
+    if lb.SetNW2String then
+        lb:SetNW2String("lambda_spawnweapon", spawn)
+    end
+
+    if lb.SwitchWeapon then
+        timer.Simple(0, function()
+            if IsValid(lb) and lb.IsLambdaPlayer then
+                lb:SwitchWeapon(spawn, true, true)
+            end
+        end)
+    end
 end
 
 local function ZS_CachePlayerLoadout(state, ply)
@@ -943,14 +1040,20 @@ local function StartRound(state, roundNum, isRestart)
                         ZS_RestorePlayerLoadout(state, ent)
                     end
                 end)
-            elseif ent.IsLambdaPlayer then
-                if state.cvRestrictWeapons:GetBool() then
-                    local forced = SafeWeaponClass(state.cvWeaponClass:GetString())
-                    if forced ~= "" then
-                        ApplyWeaponRestrictionToLambda(ent, forced)
-                    end
-                end
-            end
+			elseif ent.IsLambdaPlayer then
+				timer.Simple(0, function()
+					if not IsValid(ent) or not ent.IsLambdaPlayer then return end
+
+					if state.cvRestrictWeapons:GetBool() then
+						local forced = SafeWeaponClass( state.cvWeaponClassLambda:GetString() )
+						if forced ~= "" then
+							ApplyWeaponRestrictionToLambda( ent, forced )
+						end
+					elseif roundNum == 1 and not isRestart and state.cvResetOnRoundOne:GetBool() then
+						ZS_GiveStarterWeaponToLambda( state, ent )
+					end
+				end)
+			end
         end
     end
 
@@ -995,7 +1098,11 @@ local function StartRound(state, roundNum, isRestart)
         tostring(state.round),
         " (", state.roundType, ") - Enemies: ", tostring(total)
     )
-    ZS_PlaySound(CV_ZS_SND_ROUNDSTART)
+    if state.roundType == "antlions" then
+		ZS_PlaySound( CV_ZS_SND_SPECIALROUNDSTART )
+	else
+		ZS_PlaySound( CV_ZS_SND_ROUNDSTART )
+	end
 
     timer.Remove("LTS_ZS_SpawnPump")
     timer.Create("LTS_ZS_SpawnPump", state.curSpawnInterval, 0, function()
@@ -1099,7 +1206,7 @@ local function BuildState()
     state.teams = {}
     state.deadPlayers = {}
     state.spawnedEnemies = {}
-
+	
     state.enemiesToSpawn = 0
     state.enemiesSpawnedTotal = 0
     state.enemiesRemaining = 0
@@ -1111,6 +1218,7 @@ local function BuildState()
 
     state.playerPoints = {}
     state.cachedLoadouts = {}
+	state.cachedLambdaWeapons = {}
     state.powerups = {}
     state.teamKillGlobals = {}
     state.doublePointsUntil = 0
@@ -1145,11 +1253,13 @@ state.cvUseRoundTimer = CreateLambdaConvar("lambdaplayers_teamsystem_zs_use_roun
 state.cvRoundTime = CreateLambdaConvar("lambdaplayers_teamsystem_zs_roundtime", 180, true, false, false, "Total time in seconds for each round.", 10, 3600, { name = "Round Time", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
 
 -- THE WEAPON SETTINGS
-state.cvRestrictWeapons = CreateLambdaConvar("lambdaplayers_teamsystem_zs_restrictweapons", 0, true, false, false, "If enabled, all players are forced to one weapon. This will prevent players from using any other weapon (DO NOT ALLOW THE USE OF THE MYSTERY BOX ADDON OR ALLOW WEAPON PICK-UPS AS IT DEFEATS THE PURPOSE OF THIS FEATURE).", 0, 1, { name = "Restrict Weapon Giving & Pick-ups", type = "Bool", category = "Team System - Zombie Survival - Weapons" })
-state.cvWeaponClass = CreateLambdaConvar("lambdaplayers_teamsystem_zs_weaponclass", "weapon_smg1", true, false, false, "THIS IS THE ONLY WEAPON PLAYERS CAN USE IF RESTRICT WEAPONS IS ENABLED, DOES NOT APPLY TO LAMBDAS!", 0, 1, { name = "Restricted Weapon", type = "Text", category = "Team System - Zombie Survival - Weapons" })
-state.cvStarterWeapon = CreateLambdaConvar("lambdaplayers_teamsystem_zs_starterweapon", "m9k_colt1911", true, false, false, "Starter weapon given when round 1 begins.", 0, 1, { name = "Starter Weapon", type = "Text", category = "Team System - Zombie Survival - Weapons" })
+state.cvRestrictWeapons = CreateLambdaConvar("lambdaplayers_teamsystem_zs_restrictweapons", 0, true, false, false, "If enabled, all players are forced to one weapon. This will prevent players from using any other weapon (NOT EVERY WEAPON IS LAMBDA PLAYER FRIENDLY, USE WEAPONS LAMBDA PLAYERS CAN EQUIP OR USE DEFAULT WEAPONS).", 0, 1, { name = "Restrict Weapon Giving & Pick-ups", type = "Bool", category = "Team System - Zombie Survival - Weapons" })
+state.cvWeaponClass = CreateLambdaConvar("lambdaplayers_teamsystem_zs_weaponclass", "weapon_smg1", true, false, false, "Restricted human weapon class.", 0, 1)
+state.cvWeaponClassLambda = CreateLambdaConvar("lambdaplayers_teamsystem_zs_weaponclass_lambda", "weapon_smg1", true, false, false, "Restricted lambda weapon class.", 0, 1)
+state.cvStarterWeapon = CreateLambdaConvar("lambdaplayers_teamsystem_zs_starterweapon", "m9k_colt1911", true, false, false, "Starter human weapon class.", 0, 1)
+state.cvStarterWeaponLambda = CreateLambdaConvar("lambdaplayers_teamsystem_zs_starterweapon_lambda", "m9k_pistol_colt1911", true, false, false, "Starter lambda weapon class.", 0, 1)
 state.cvWeaponLimit = CreateLambdaConvar("lambdaplayers_teamsystem_zs_weaponlimit", 4, true, false, false, "Maximum amount of weapons a player may carry.", 1, 12, { name = "Weapon Limit", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Weapons" })
-state.cvResetOnRoundOne = CreateLambdaConvar("lambdaplayers_teamsystem_zs_resetloadout_round1", 1, true, false, false, "If enabled, round 1 wipes all players loadouts and gives everyone the selected starter weapon.", 0, 1, { name = "Reset Loadout On Round 1", type = "Bool", category = "Team System - Zombie Survival - Weapons" })
+state.cvResetOnRoundOne = CreateLambdaConvar("lambdaplayers_teamsystem_zs_resetloadout_round1", 1, true, false, false, "If enabled, round 1 wipes all players loadouts and gives everyone the selected starter weapon (NOT EVERY WEAPON IS LAMBDA PLAYER FRIENDLY, USE WEAPONS LAMBDA PLAYERS CAN EQUIP OR USE DEFAULT WEAPONS).", 0, 1, { name = "Reset Loadout On Round 1", type = "Bool", category = "Team System - Zombie Survival - Weapons" })
 
 -- THE ADDITIONAL SETTINGS 
 state.cvSpecialRounds = CreateLambdaConvar("lambdaplayers_teamsystem_zs_specialrounds", 0, true, false, false, "If enabled, some rounds spawn antlions instead of zombies.", 0, 1, { name = "Enable Special Rounds", type = "Bool", category = "Team System - Zombie Survival - Additional" })
@@ -1158,9 +1268,95 @@ state.cvSpecialMinRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_specia
 state.cvEndlessSpecials = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless_specials", 1, true, false, false, "If the endless round is enabled, allow special zombies in endless mode (this is similar to COD 2023 & BOCW zombies).", 0, 1, { name = "Endless Specials", type = "Bool", category = "Team System - Zombie Survival - Additional" })
 state.cvEndlessSpecialChance = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless_specialchance", 0.25, true, false, false, "Chance for specials to appear during endless rounds.", 0.0, 1.0, { name = "Endless Special Chance", type = "Slider", decimals = 2, category = "Team System - Zombie Survival - Additional" })
 state.cvEndlessSpecialMinRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless_specialminround", 6, true, false, false, "Minimum round before endless mode can start throwing specials in.", 1, 255, { name = "Endless Special Min Round", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Additional" })
-state.cvUseCustomNPCs = CreateLambdaConvar("lambdaplayers_teamsystem_zs_usecustomnpcs", 0, true, false, false, "If enabled, Zombie Survival uses custom NPC class lists (USE ONLY 1 METHOD TO CHANGE THE ZOMBIES: THE PANEL IN PANELS OR TEXT BELOW / CHANGING BOTH WILL CAUSE THE GAMEMODE TO REFUSE THE CUSTOM ZOMBIES.", 0, 1, { name = "Use Custom NPCs For Zombie Survival", type = "Bool", category = "Team System - Zombie Survival - Additional" })
+state.cvUseCustomNPCs = CreateLambdaConvar("lambdaplayers_teamsystem_zs_usecustomnpcs", 0, true, false, false, "If enabled, the Zombie Survival gamemode will instead use NPCs that you want to use (USE ONLY 1 METHOD TO CHANGE THE ZOMBIES, EITHER THE PANEL IN PANELS OR TEXT BELOW) (DO NOT USE LAMBDA PLAYERS AS ZOMBIES, IT CAN POTENTIALLY BREAK THE ADDON) (CHANGING BOTH WILL CAUSE GAMEMODE ISSUES).", 0, 1, { name = "Use Custom NPCs For Zombie Survival", type = "Bool", category = "Team System - Zombie Survival - Additional" })
 state.cvZombieNPCList = CreateLambdaConvar("lambdaplayers_teamsystem_zs_zombie_npclist", "npc_zombie,npc_fastzombie,npc_zombine,npc_poisonzombie", true, false, false, "NPC classes used for regular rounds.", 0, 1, { name = "Zombie NPCs", type = "Text", category = "Team System - Zombie Survival - Additional" })
 state.cvSpecialNPCList = CreateLambdaConvar("lambdaplayers_teamsystem_zs_special_npclist", "npc_antlion,npc_antlionguard", true, false, false, "NPC classes used for special rounds.", 0, 1, { name = "Special Round NPCs", type = "Text", category = "Team System - Zombie Survival - Additional" })
+
+-- THE MYSTERY BOX SETINGS
+CreateLambdaConvar( "lambdaplayers_mysterybox_enabled", 1, true, false, false, "If enabled, Lambda Players will be allowed to use the Mystery Box Entity (Sandbox/TTT) (2023 Update).", 0, 1, { name = "Enable Mystery Box Compat", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_box_radius", 90, true, false, false, "Distance for Lambdas to use nearby mystery boxes (putting it higher than 100 will make it look freaky).", 1, 500, { name = "Box Use Radius", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_reward_radius", 100, true, false, false, "Distance for Lambdas to claim nearby mystery box rewards.", 1, 500, { name = "Reward Pickup Radius", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_scan_interval", 0.33, true, false, false, "How often Lambda Players search for boxes and rewards (Lower values will cause slight performance decreases).", 0.05, 2.0, { name = "Search Interval", type = "Slider", decimals = 2, category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_require_outofcombat", 1, true, false, false, "If enabled, Lambda Players will only use mystery boxes while out of combat.", 0, 1, { name = "Use Mystery Box Out Of Combat", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_skip_owned", 1, true, false, false, "If enabled, Lambda Players will not collect weapons from the Mystery Box that they already have.", 0, 1, { name = "Skip Current Weapon", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_enabled", 0, true, false, false, "If enabled, some Lambda Players near mystery boxes may stay and guard the area around it.", 0, 1, { name = "Guard Nearby Boxes", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_chance", 30, true, false, false, "Chance that a Lambda Player will guard a mystery box.", 0, 100, { name = "Guard Chance", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_radius", 250, true, false, false, "How close a guarding Lambda should remain to the box.", 64, 1000, { name = "Guard Radius", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_time_min", 8, true, false, false, "Minimum time a Lambda Player will guard a mystery box.", 1, 120, { name = "Guard Time Min", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_time_max", 18, true, false, false, "Maximum time a Lambda Player will guard near mystery box.", 1, 120, { name = "Guard Time Max", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_uses_min", 1, true, false, false, "Minimum times Lambda Players can use mystery boxes.", 0, 20, { name = "Min Box Uses", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_uses_max", 3, true, false, false, "Maximum times Lambda Players can use mystery boxes.", 0, 20, { name = "Max Box Uses", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_debug", 0, true, false, false, "Print debugging information for the compatibility patches between Lambda Players & the Mystery Box Entity.", 0, 1, { name = "Debug Logging", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
+
+LambdaTeams.LTS_ZS_HumanToLambdaWeapon = LambdaTeams.LTS_ZS_HumanToLambdaWeapon or {
+    m9k_acr = "m9k_ar_acr",
+    m9k_ak47 = "m9k_ar_ak47",
+    m9k_ak74 = "m9k_ar_ak74",
+    m9k_an94 = "m9k_ar_an94",
+    m9k_amd65 = "m9k_ar_amd65",
+    m9k_asval = "m9k_ar_asval",
+    m9k_f2000 = "m9k_ar_f2000",
+    m9k_fal = "m9k_ar_fal",
+    m9k_famas = "m9k_ar_famas",
+    m9k_g36 = "m9k_ar_g36c",
+    m9k_hk416 = "m9k_ar_hk416",
+    m9k_m4a1 = "m9k_ar_m4a1",
+    m9k_m14sp = "m9k_ar_m14",
+    m9k_m16a4_acog = "m9k_ar_m16a1",
+    m9k_scar = "m9k_ar_scar",
+    m9k_tar21 = "m9k_ar_tar21",
+    m9k_vikhr = "m9k_ar_vikhr",
+    m9k_winchester73 = "m9k_ar_winchester_rifle",
+
+    m9k_colt1911 = "m9k_pistol_colt1911",
+    m9k_deagle = "m9k_pistol_deagle",
+    m9k_hk45 = "m9k_pistol_hk45",
+    m9k_luger = "m9k_pistol_luger",
+    m9k_m29satan = "m9k_pistol_satan",
+    m9k_m92beretta = "m9k_pistol_m92beretta",
+    m9k_model3russian = "m9k_pistol_model3russian",
+    m9k_mp412rex = "m9k_pistol_mp412rex",
+    m9k_python = "m9k_pistol_python",
+    m9k_remington1858 = "m9k_pistol_remington1858",
+    m9k_ragingbull = "m9k_pistol_ragingb",
+    m9k_sig_p229r = "m9k_pistol_sigp229",
+    m9k_model500 = "m9k_pistol_sw500",
+    m9k_model627 = "m9k_pistol_sw627",
+    m9k_usp = "m9k_pistol_usp",
+
+    m9k_bizonp19 = "m9k_smg_bizon",
+    m9k_honeybadger = "m9k_smg_honeybadger",
+    m9k_kac_pdw = "m9k_smg_pdw",
+    m9k_magpulpdr = "m9k_smg_pdr",
+    m9k_mp5 = "m9k_smg_mp5",
+    m9k_mp5sd = "m9k_smg_mp5sd",
+    m9k_mp7 = "m9k_smg_mp7",
+    m9k_mp9 = "m9k_smg_mp9",
+    m9k_p90 = "m9k_smg_p90",
+    m9k_sten = "m9k_smg_sten",
+    m9k_tec9 = "m9k_smg_tec9",
+    m9k_thompson = "m9k_smg_tommygun",
+    m9k_uzi = "m9k_smg_uzi",
+    m9k_ump45 = "m9k_smg_ump45",
+    m9k_vector = "m9k_smg_vector",
+    m9k_usc = "m9k_smg_usc",
+
+    m9k_1887winchester = "m9k_hvy_1887winchester",
+    m9k_barret_m82 = "m9k_hvy_barret_m82",
+    m9k_browningauto5 = "m9k_hvy_browningauto5",
+    m9k_m24 = "m9k_hvy_m24",
+    m9k_m249lmg = "m9k_hvy_m249",
+    m9k_m3 = "m9k_hvy_benellim3",
+    m9k_m60 = "m9k_hvy_m60",
+    m9k_mossberg590 = "m9k_hvy_mossberg590",
+    m9k_pkm = "m9k_hvy_pkm",
+    m9k_psg1 = "m9k_hvy_psg1",
+    m9k_remington870 = "m9k_hvy_remington870",
+    m9k_spas12 = "m9k_hvy_spas12",
+    m9k_svu = "m9k_hvy_dragunovsvu",
+    m9k_svt40 = "m9k_hvy_svt40",
+    m9k_usas = "m9k_hvy_usas",
+}
 
 -- THE POWERUP SETTINGS
 state.cvPowerups = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerups", 1, true, false, false, "Enable powerups in Zombie Survival.", 0, 1, { name = "Enable Powerups", type = "Bool", category = "Team System - Zombie Survival - Powerup Settings" })
@@ -1211,17 +1407,30 @@ state.cvPvPTimerRestart = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_ti
             SetGlobalInt("LambdaTeamMatch_GameID", 0)
         end
 
-        RespawnAll(self)
+		for _, tdata in pairs(self.teams) do
+			for _, ent in ipairs(tdata.members) do
+				if IsValid(ent) then
+					ZS_SetParticipantState(ent, false)
 
-        for _, tdata in pairs(self.teams) do
-            for _, ent in ipairs(tdata.members) do
-                if IsValid(ent) then
-                    ZS_SetPlayerPoints(self, ent, 0)
-                end
-            end
-        end
+					if ent.IsLambdaPlayer then
+						ZS_RestoreLambdaWeaponState(self, ent)
+					end
+				end
+			end
+		end
 
-        ZS_ClearTeamKillCounters(self)
+		RespawnAll(self)
+
+		for _, tdata in pairs(self.teams) do
+			for _, ent in ipairs(tdata.members) do
+				if IsValid(ent) then
+					ZS_SetPlayerPoints(self, ent, 0)
+				end
+			end
+		end
+
+		table.Empty(self.cachedLambdaWeapons)
+		ZS_ClearTeamKillCounters(self)
 
         if endedPrematurely then
             ChatAll("Zombie Survival ended prematurely.")
@@ -1290,16 +1499,29 @@ local function StartMatch(ply)
             return
         end
 
-        STATE.teams = teams
-        table.Empty(STATE.deadPlayers)
-        table.Empty(STATE.spawnedEnemies)
-        table.Empty(STATE.pvpMatchWins)
-        table.Empty(STATE.playerPoints)
-        table.Empty(STATE.cachedLoadouts)
-        table.Empty(STATE.powerups)
-        STATE.pvpRoundPoints = {}
-        STATE.doublePointsUntil = 0
-        STATE.nextLoadoutCacheT = 0
+		STATE.teams = teams
+		table.Empty(STATE.deadPlayers)
+		table.Empty(STATE.spawnedEnemies)
+		table.Empty(STATE.pvpMatchWins)
+		table.Empty(STATE.playerPoints)
+		table.Empty(STATE.cachedLoadouts)
+		table.Empty(STATE.cachedLambdaWeapons)
+		table.Empty(STATE.powerups)
+		STATE.pvpRoundPoints = {}
+		STATE.doublePointsUntil = 0
+		STATE.nextLoadoutCacheT = 0
+
+		for _, tdata in pairs(STATE.teams) do
+			for _, ent in ipairs(tdata.members) do
+				if IsValid(ent) then
+					ZS_SetParticipantState(ent, true)
+
+					if ent.IsLambdaPlayer then
+						ZS_CacheLambdaWeaponState(STATE, ent)
+					end
+				end
+			end
+		end
 
         STATE.savedAlliances = DeepCopyBoolTable2D(LambdaTeams.AlliedTeams or {})
 
@@ -1591,7 +1813,7 @@ hook.Add("WeaponEquip", "LTS_ZS_WeaponEquip", function(wep, owner)
 
     timer.Simple(0, function()
         if not IsValid(owner) or not owner:Alive() then return end
-        ZS_EnforceWeaponLimit(STATE, owner)
+        ZS_EnforceWeaponLimit(STATE, owner, wep)
         ZS_CachePlayerLoadout(STATE, owner)
     end)
 end)
@@ -1607,17 +1829,12 @@ hook.Add("PlayerCanPickupWeapon", "LTS_ZS_BlockWeaponPickup", function(ply, wep)
         return (wep:GetClass() == forced)
     end
 
-    local class = wep:GetClass()
-    if class == "" then return end
+	local class = wep:GetClass()
+	if class == "" then return end
 
-    if IsValid(ply:GetWeapon(class)) then
-        return true
-    end
-
-    local limit = math.max(1, STATE.cvWeaponLimit:GetInt())
-    if ZS_CountTrackedWeapons(ply) >= limit then
-        return false
-    end
+	-- when restrict is OFF, allow any weapon pickup
+	-- I swear I have had it with going back and forth with solutions for this problem
+	return true
 end)
 
 hook.Add("LambdaOnKilled", "LTS_ZS_LambdaKilled", function(self, dmginfo)
@@ -1668,14 +1885,22 @@ hook.Add("LambdaPostRecreated", "LTS_ZS_LambdaPostRecreated", function(self)
 
     if deadFlag then
         DownLambda(self)
+        return
     end
 
-    if STATE.cvRestrictWeapons:GetBool() then
-        local wep = SafeWeaponClass(STATE.cvWeaponClass:GetString())
-        if wep ~= "" and self.SwitchWeapon then
-            self:SwitchWeapon(wep)
+    timer.Simple(0, function()
+        if not IsValid(self) or not self.IsLambdaPlayer then return end
+        if not STATE.active or STATE.phase ~= "round" then return end
+
+        if STATE.cvRestrictWeapons:GetBool() then
+            local wep = SafeWeaponClass( STATE.cvWeaponClassLambda:GetString() )
+            if wep ~= "" then
+                ApplyWeaponRestrictionToLambda( self, wep )
+            end
+        elseif STATE.round == 1 and STATE.cvResetOnRoundOne:GetBool() then
+            ZS_GiveStarterWeaponToLambda( STATE, self )
         end
-    end
+    end)
 end)
 
 hook.Add("PlayerShouldTakeDamage", "LTS_ZS_CoopNoTeamDamage", function(ply, attacker)
@@ -1952,8 +2177,36 @@ if CLIENT then
 end
 
 if CLIENT then
-    surface.CreateFont("LTS_ZS_HUDBig", { font = "Trebuchet24", size = 26, weight = 900 })
-    surface.CreateFont("LTS_ZS_HUDSmall", { font = "Trebuchet24", size = 18, weight = 700 })
+    surface.CreateFont("LTS_ZS_HUDBig", { font = "Trebuchet24", size = 20, weight = 900 })
+    surface.CreateFont("LTS_ZS_HUDSmall", { font = "Trebuchet24", size = 16, weight = 700 })
+
+    local function ZS_IsParticipant(ent)
+        if not IsValid(ent) then return false end
+        if ent.GetNW2Bool then
+            return ent:GetNW2Bool("LTS_ZS_Participant", false)
+        end
+        return ent:GetNWBool("LTS_ZS_Participant", false)
+    end
+
+    local function ZS_GetPoints(ent)
+        if not IsValid(ent) then return 0 end
+        if ent.GetNW2Int then
+            return ent:GetNW2Int("LTS_ZS_Points", 0)
+        end
+        return ent:GetNWInt("LTS_ZS_Points", 0)
+    end
+
+    local function ZS_GetDisplayName(ent)
+        if ent:IsPlayer() then return ent:Nick() end
+
+        if ent.GetLambdaName then
+            local nm = ent:GetLambdaName()
+            if nm and nm ~= "" then return nm end
+        end
+
+        local nm = ent:GetName()
+        return (nm ~= "" and nm or "Lambda")
+    end
 
     hook.Add("HUDPaint", "LTS_ZS_HUD", function()
         if not GetGlobalBool("LTS_ZS_Active", false) then return end
@@ -1963,15 +2216,288 @@ if CLIENT then
         local t = GetGlobalInt("LTS_ZS_TimeRemaining", -1)
         local rtype = GetGlobalString("LTS_ZS_RoundType", "zombies")
 
-        local x, y = 24, 24
-        draw.SimpleText("Zombie Survival", "LTS_ZS_HUDBig", x, y, Color(255, 255, 255), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        y = y + 28
-        draw.SimpleText("Round: " .. tostring(round) .. " (" .. tostring(rtype) .. ")", "LTS_ZS_HUDSmall", x, y, Color(200, 230, 255))
-        y = y + 20
-        draw.SimpleText("Enemies Remaining: " .. tostring(rem), "LTS_ZS_HUDSmall", x, y, Color(255, 220, 200))
-        y = y + 20
+        local statusClr = (rtype == "antlions" and Color(255, 70, 70) or Color(200, 230, 255))
+        local roundLabel = (rtype == "antlions" and "SPECIAL" or string.upper(tostring(rtype)))
+
+        local status = "ZS | Round " .. tostring(round) .. " | " .. roundLabel .. " | " .. tostring(rem) .. " Left"
         if t and t >= 0 then
-            draw.SimpleText("Time: " .. tostring(t), "LTS_ZS_HUDSmall", x, y, Color(255, 255, 180))
+            status = status .. " | " .. tostring(t) .. "s"
+        end
+
+        surface.SetFont("LTS_ZS_HUDSmall")
+        local statusW, statusH = surface.GetTextSize(status)
+
+        local x, y = 22, 22
+        draw.RoundedBox(6, x - 8, y - 6, statusW + 16, statusH + 12, Color(0, 0, 0, 150))
+        draw.SimpleText(status, "LTS_ZS_HUDSmall", x, y, statusClr, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+
+        local entries = {}
+        local everyone = {}
+        table.Add(everyone, GetLambdaPlayers())
+        table.Add(everyone, player.GetAll())
+
+        for _, ent in ipairs(everyone) do
+            if not ZS_IsParticipant(ent) then continue end
+
+            local teamName = LambdaTeams:GetPlayerTeam(ent) or "Neutral"
+            entries[#entries + 1] = {
+                name = ZS_GetDisplayName(ent),
+                color = LambdaTeams:GetTeamColor(teamName, true) or color_white,
+                points = ZS_GetPoints(ent)
+            }
+        end
+
+        table.sort(entries, function(a, b)
+            if a.points == b.points then
+                return a.name < b.name
+            end
+            return a.points > b.points
+        end)
+
+        local listX = ScrW() - 320
+        local listY = 24
+        local rowH = 18
+        local shown = math.min(#entries, 12)
+        local boxH = 30 + (shown * rowH) + 10
+
+        draw.RoundedBox(6, listX - 10, listY - 8, 300, boxH, Color(0, 0, 0, 150))
+        draw.SimpleText("Zombie Survival Kills", "LTS_ZS_HUDBig", listX, listY, Color(255, 255, 255), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        listY = listY + 24
+
+        for i = 1, shown do
+            local entry = entries[i]
+
+            draw.SimpleText(entry.name, "LTS_ZS_HUDSmall", listX, listY, entry.color, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+            draw.SimpleText(tostring(entry.points), "LTS_ZS_HUDSmall", listX + 270, listY, Color(255, 220, 120), TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
+
+            listY = listY + rowH
         end
     end)
+end
+
+if CLIENT then
+    local function ZS_GetHumanWeaponEntries()
+        local out, seen = {}, {}
+
+        for _, wep in ipairs( weapons.GetList() or {} ) do
+            local class = SafeWeaponClass( wep.ClassName or wep.Class or "" )
+            if class == "" or seen[ class ] then continue end
+
+            seen[ class ] = true
+            out[ #out + 1 ] = {
+                name = ( wep.PrintName and wep.PrintName ~= "" and wep.PrintName or class ),
+                class = class
+            }
+        end
+
+        table.sort( out, function( a, b ) return a.name < b.name end )
+        return out
+    end
+
+    local function ZS_GetLambdaWeaponEntries()
+        local out = {}
+        if not _LAMBDAPLAYERSWEAPONS then return out end
+
+        for class, data in pairs( _LAMBDAPLAYERSWEAPONS ) do
+            if class == "none" then continue end
+            if class == "physgun" then continue end
+            if data.cantbeselected then continue end
+
+            out[ #out + 1 ] = {
+                name = ( data.notagprettyname or data.prettyname or class ),
+                class = class
+            }
+        end
+
+        table.sort( out, function( a, b ) return a.name < b.name end )
+        return out
+    end
+
+	local function ZS_GetSelectedLinePanel( listview )
+		if not IsValid( listview ) then return nil end
+
+		if listview.GetSelected then
+			local selected = listview:GetSelected()
+
+			if IsValid( selected ) then
+				return selected
+			end
+
+			if istable( selected ) then
+				for _, line in pairs( selected ) do
+					if IsValid( line ) then
+						return line
+					end
+				end
+			end
+		end
+
+		if listview.GetSelectedLine and listview.GetLine then
+			local lineID = listview:GetSelectedLine()
+			if isnumber( lineID ) then
+				local line = listview:GetLine( lineID )
+				if IsValid( line ) then
+					return line
+				end
+			end
+		end
+
+		return nil
+	end
+
+	local function ZS_SelectLineByClass( listview, class )
+		if not IsValid( listview ) or not isstring( class ) or class == "" then return nil end
+
+		for _, line in ipairs( listview:GetLines() or {} ) do
+			if IsValid( line ) and line._zsclass == class then
+				listview:SelectItem( line )
+
+				local canvas = listview.GetCanvas and listview:GetCanvas()
+				if IsValid( canvas ) and canvas.ScrollToChild then
+					canvas:ScrollToChild( line )
+				elseif listview.ScrollToChild then
+					listview:ScrollToChild( line )
+				elseif line.MakeVisible then
+					line:MakeVisible()
+				end
+
+				return line
+			end
+		end
+
+		return nil
+	end
+
+    local function ZS_OpenWeaponPairPanel( ply, title, humanCvarName, lambdaCvarName )
+        if not IsValid( ply ) or not ply:IsSuperAdmin() then
+            notification.AddLegacy( "You must be a Super Admin in order to use this!", NOTIFY_ERROR, 4 )
+            surface.PlaySound( "buttons/button10.wav" )
+            return
+        end
+
+        local humanCv = GetConVar( humanCvarName )
+        local lambdaCv = GetConVar( lambdaCvarName )
+        if not humanCv or not lambdaCv then
+            notification.AddLegacy( "ZS weapon cvars were not found!", NOTIFY_ERROR, 4 )
+            surface.PlaySound( "buttons/button10.wav" )
+            return
+        end
+
+        local frame = vgui.Create( "DFrame" )
+        frame:SetTitle( title )
+        frame:SetSize( 1000, 560 )
+        frame:Center()
+        frame:MakePopup()
+
+        local left = vgui.Create( "DPanel", frame )
+        left:Dock( LEFT )
+        left:SetWide( 490 )
+        left:DockMargin( 6, 6, 3, 6 )
+
+        local right = vgui.Create( "DPanel", frame )
+        right:Dock( FILL )
+        right:DockMargin( 3, 6, 6, 6 )
+
+        local humanLV = vgui.Create( "DListView", left )
+        humanLV:Dock( FILL )
+        humanLV:AddColumn( "Human Weapon" )
+        humanLV:AddColumn( "Class" )
+
+        local lambdaLV = vgui.Create( "DListView", right )
+        lambdaLV:Dock( FILL )
+        lambdaLV:AddColumn( "Lambda Weapon" )
+        lambdaLV:AddColumn( "Class" )
+
+        for _, info in ipairs( ZS_GetHumanWeaponEntries() ) do
+            local line = humanLV:AddLine( info.name, info.class )
+            line._zsclass = info.class
+        end
+
+        for _, info in ipairs( ZS_GetLambdaWeaponEntries() ) do
+            local line = lambdaLV:AddLine( info.name, info.class )
+            line._zsclass = info.class
+        end
+
+        humanLV.OnRowSelected = function( _, _, line )
+            if not line then return end
+            local humanClass = line._zsclass
+            local remap = LambdaTeams.LTS_ZS_HumanToLambdaWeapon or {}
+            local lambdaClass = remap[ humanClass ] or humanClass
+            ZS_SelectLineByClass( lambdaLV, lambdaClass )
+        end
+
+        ZS_SelectLineByClass( humanLV, humanCv:GetString() )
+        ZS_SelectLineByClass( lambdaLV, lambdaCv:GetString() )
+
+        local buttons = vgui.Create( "DPanel", frame )
+        buttons:Dock( BOTTOM )
+        buttons:SetTall( 36 )
+        buttons:DockMargin( 6, 0, 6, 6 )
+
+        local autoMap = vgui.Create( "DButton", buttons )
+        autoMap:Dock( LEFT )
+        autoMap:SetWide( 180 )
+        autoMap:SetText( "Auto Map Lambda From Human" )
+		autoMap.DoClick = function()
+			local line = ZS_GetSelectedLinePanel( humanLV )
+			if not line then return end
+
+			local remap = LambdaTeams.LTS_ZS_HumanToLambdaWeapon or {}
+			local lambdaClass = remap[ line._zsclass ] or line._zsclass
+			ZS_SelectLineByClass( lambdaLV, lambdaClass )
+			surface.PlaySound( "buttons/button15.wav" )
+		end
+
+        local save = vgui.Create( "DButton", buttons )
+        save:Dock( RIGHT )
+        save:SetWide( 120 )
+        save:SetText( "Save" )
+		save.DoClick = function()
+    local humanLine = ZS_GetSelectedLinePanel( humanLV )
+    local lambdaLine = ZS_GetSelectedLinePanel( lambdaLV )
+
+    if not humanLine or not lambdaLine then
+        notification.AddLegacy( "Select both a human weapon and a lambda weapon first.", NOTIFY_ERROR, 4 )
+        surface.PlaySound( "buttons/button10.wav" )
+        return
+    end
+
+    RunConsoleCommand( humanCvarName, humanLine._zsclass )
+    RunConsoleCommand( lambdaCvarName, lambdaLine._zsclass )
+
+    notification.AddLegacy( "Updated Zombie Survival weapon pair!", NOTIFY_GENERIC, 4 )
+    surface.PlaySound( "buttons/button15.wav" )
+    frame:Close()
+end
+	end
+
+    CreateLambdaConsoleCommand(
+        "lambdaplayers_teamsystem_zs_openrestrictedweaponpanel",
+        function( ply )
+            ZS_OpenWeaponPairPanel(
+                ply,
+                "Team System - ZS Restricted Weapons",
+                "lambdaplayers_teamsystem_zs_weaponclass",
+                "lambdaplayers_teamsystem_zs_weaponclass_lambda"
+            )
+        end,
+        true,
+        "Opens a panel to pick the human and lambda restricted weapons for Zombie Survival.",
+        { name = "Edit Restricted Weapon", category = "Team System - Zombie Survival - Weapons" }
+    )
+
+    CreateLambdaConsoleCommand(
+        "lambdaplayers_teamsystem_zs_openstarterweaponpanel",
+        function( ply )
+            ZS_OpenWeaponPairPanel(
+                ply,
+                "Team System - ZS Starter Weapons",
+                "lambdaplayers_teamsystem_zs_starterweapon",
+                "lambdaplayers_teamsystem_zs_starterweapon_lambda"
+            )
+        end,
+        true,
+        "Opens a panel to pick the human and lambda starter weapons for Zombie Survival.",
+        { name = "Edit Starter Weapon", category = "Team System - Zombie Survival - Weapons" }
+    )
 end

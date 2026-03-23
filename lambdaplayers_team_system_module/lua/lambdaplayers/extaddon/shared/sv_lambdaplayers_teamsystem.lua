@@ -6,11 +6,14 @@ if ( SERVER ) then
     util.AddNetworkString( "lambda_teamsystem_updatedata" )
     util.AddNetworkString( "lambda_teamsystem_sendupdateddata" )
 	util.AddNetworkString( "lambda_teamsystem_kd_feedback" )
+	util.AddNetworkString( "lambda_teamsystem_tdm_reveal" )
 
 	local GetNearestNavArea = navmesh.GetNearestNavArea
 	local VectorRand = VectorRand
 	local FrameTime = FrameTime
 	local RandomPairs = RandomPairs
+	local player_GetAll = player.GetAll
+	local table_Add = table.Add
 	local table_Random = table.Random
 	local table_Count = table.Count
 	local table_Copy = table.Copy
@@ -22,6 +25,7 @@ if ( SERVER ) then
 	local Rand = math.Rand
 	local random = math.random
 	local timer_Simple = timer.Simple
+
 	
     local modulePrefix = "Lambda_TeamSystem_"
 
@@ -90,12 +94,35 @@ if ( SERVER ) then
 	local salvageGuardBanks = GetConVar( "lambdaplayers_teamsystem_salvagerun_guardbanks" )
 	local salvagePickupEnableDelay = GetConVar( "lambdaplayers_teamsystem_salvagerun_pickupenable_delay" )
 	local salvageRemoveTime = GetConVar( "lambdaplayers_teamsystem_salvagerun_removetime" )
+	local salvageGeneratorEnabled = GetConVar( "lambdaplayers_teamsystem_salvagerun_generator_enabled" )
+	local salvageGeneratorUseRange = GetConVar( "lambdaplayers_teamsystem_salvagerun_generator_userange" )
+	local salvageGeneratorLambdaTime = GetConVar( "lambdaplayers_teamsystem_salvagerun_generator_lambdatime" )
+	local salvageGeneratorHumanTime = GetConVar( "lambdaplayers_teamsystem_salvagerun_generator_humantime" )
+	local salvageGeneratorCooldown = GetConVar( "lambdaplayers_teamsystem_salvagerun_generator_cooldown" )
+	local salvageGeneratorYield = GetConVar( "lambdaplayers_teamsystem_salvagerun_generator_yield" )
+	local salvageRandomizeDrops = GetConVar( "lambdaplayers_teamsystem_salvagerun_randomizedrops" )
+	local salvageRandomizeDropsMin = GetConVar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_min" )
+	local salvageRandomizeDropsMax = GetConVar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_max" )
+	local salvageDropCarryOnDeath = GetConVar( "lambdaplayers_teamsystem_salvagerun_dropcarryondeath" )
+	local salvageCombinePatrols = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols" )
+	local salvageCombinePatrolInterval = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_interval" )
+	local salvageCombinePatrolMaxAlive = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_maxalive" )
+	local salvageCombineHumanNearOnly = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_nearhuman" )
+	local salvageCombineHumanNearDist = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_humanrange" )
+	local salvageCombineEscalation = GetConVar( "lambdaplayers_teamsystem_salvagerun_combineescalation" )
+	local salvageCombineEscalationKills = GetConVar( "lambdaplayers_teamsystem_salvagerun_combineescalation_kills" )
+	local salvageCombineEscalationWindow = GetConVar( "lambdaplayers_teamsystem_salvagerun_combineescalation_window" )
+	local salvageCombineEscalationDuration = GetConVar( "lambdaplayers_teamsystem_salvagerun_combineescalation_duration" )
 	local salvageCustomMdl = GetConVar( "lambdaplayers_teamsystem_salvagerun_custommodel" )
 	local salvageBankRange = GetConVar( "lambdaplayers_teamsystem_salvagerun_bankrange" )
 	local salvageLoseOnDeath = GetConVar( "lambdaplayers_teamsystem_salvagerun_loseondeath" )
 	local salvageDrawWorldText = GetConVar( "lambdaplayers_teamsystem_salvagerun_worldtext" )
 	local salvageWorldTextDist = GetConVar( "lambdaplayers_teamsystem_salvagerun_worldtextdist" )
-
+	local salvageGeneratorEnabled = GetConVar( "lambdaplayers_teamsystem_salvagerun_generator_enabled" )
+	
+	local function LTS_SalvageGeneratorEnabled()
+		return ( salvageGeneratorEnabled and salvageGeneratorEnabled:GetBool() ) or false
+	end
 
     local rndBodyGroups = GetConVar( "lambdaplayers_lambda_allowrandomskinsandbodygroups" )
 
@@ -160,6 +187,11 @@ if ( SERVER ) then
 			ply:SetNW2Vector( "lambda_teamcolor", vector_origin )
 			ply:SetNWVector( "lambda_teamcolor", vector_origin )
 		end
+			timer_Simple( 0, function()
+            if LambdaTeams and LambdaTeams.TDM_RefreshLiveColors then
+                LambdaTeams:TDM_RefreshLiveColors()
+            end
+        end )
 	end
 
 	LTS_ApplyPlayerLambdaTeam = function( ply )
@@ -349,6 +381,12 @@ if ( SERVER ) then
         lambda:SetExternalVar( "l_TeamSpawnArmor", teamData.spawnarmor )
         lambda:SetExternalVar( "l_TeamVoiceProfile", teamData.voiceprofile )
         lambda:SetExternalVar( "l_TeamWepRestrictions", teamData.weaponrestrictions )
+		
+		timer_Simple( 0, function()
+            if LambdaTeams and LambdaTeams.TDM_RefreshLiveColors then
+                LambdaTeams:TDM_RefreshLiveColors()
+            end
+        end )
     end
 
     local function OnPlayerSpawnedNPC( ply, npc )
@@ -504,18 +542,39 @@ if ( SERVER ) then
         else
             self:SetPlyColor( self.l_TeamColor:ToVector() )
         end
-    end
-
-    local function LambdaOnRespawn( self )
-        if !useSpawnpoints:GetBool() then return end
 		
-        local spawnPoint = LTS_SelectTeamSpawn( self.l_TeamName )
-        if !IsValid( spawnPoint ) then return end
-
-        self:SetPos( spawnPoint:GetPos() )
-        self:SetAngles( spawnPoint:GetAngles() )
+		if LambdaTeams and LambdaTeams.TDM_IsElimination and LambdaTeams:TDM_IsElimination() then
+			if LambdaTeams.TDM_IsActorEliminated and LambdaTeams:TDM_IsActorEliminated( self ) then
+				if self.SetRespawn then
+					self:SetRespawn( false )
+				end
+			end
+		elseif LambdaTeams and LambdaTeams.TDM_RestoreRespawnState then
+			LambdaTeams:TDM_RestoreRespawnState( self )
+		end
+		    timer_Simple( 0, function()
+            if LambdaTeams and LambdaTeams.TDM_RefreshLiveColors then
+                LambdaTeams:TDM_RefreshLiveColors()
+            end
+        end )
     end
 
+	local function LambdaOnRespawn( self )
+		if GetGlobalInt( "LambdaTeamMatch_GameID", 0 ) == 3
+		and LambdaTeams.TDM_IsElimination and LambdaTeams:TDM_IsElimination()
+		and LambdaTeams.TDM_IsActorEliminated and LambdaTeams:TDM_IsActorEliminated( self ) then
+			return true
+		end
+
+		if !useSpawnpoints:GetBool() then return end
+			
+		local spawnPoint = LTS_SelectTeamSpawn( self.l_TeamName )
+		if !IsValid( spawnPoint ) then return end
+
+		self:SetPos( spawnPoint:GetPos() )
+		self:SetAngles( spawnPoint:GetAngles() )
+	end
+	
 	local function LTS_IsAliveSabotageActor( ent )
 		if !IsValid( ent ) then return false end
 
@@ -1369,10 +1428,23 @@ if ( SERVER ) then
                         self.l_SR_TargetEnt = nil
                         self.l_SR_TargetPos = nil
                     end
+				elseif LTS_SalvageGeneratorEnabled()
+				and self.l_SR_Role != "guard"
+				and !self:InCombat() then
+					local gen = ( LambdaTeams.GetNearestSalvageGenerator and LambdaTeams:GetNearestSalvageGenerator( self:GetPos() ) )
+					if IsValid( gen ) then
+						self.l_SR_TargetEnt = gen
+						self.l_SR_TargetPos = gen:GetPos()
+						self.l_ObjCommitUntil = now + objCommitTime:GetFloat()
 
-                elseif salvageGuardBanks and salvageGuardBanks:GetBool()
-                and self.l_SR_Role == "guard"
-                and LambdaTeams.TeamHasSalvageBank and LambdaTeams:TeamHasSalvageBank( myTeam ) then
+						if self.CancelMovement then self:CancelMovement() end
+					else
+						self.l_SR_TargetEnt = nil
+						self.l_SR_TargetPos = nil
+					end
+				elseif salvageGuardBanks and salvageGuardBanks:GetBool()
+				and self.l_SR_Role == "guard"
+				and LambdaTeams.TeamHasSalvageBank and LambdaTeams:TeamHasSalvageBank( myTeam ) then
                     local bank = ( LambdaTeams.GetNearestSalvageBank and LambdaTeams:GetNearestSalvageBank( myTeam, self:GetPos() ) )
                     if IsValid( bank ) then
                         local bankPos = bank:GetPos()
@@ -1740,16 +1812,32 @@ if ( SERVER ) then
 
 	end
 
-    local function OnPlayerSpawn( ply, transition )
-        if transition or !tobool( ply:GetInfo( "lambdaplayers_teamsystem_plyusespawnpoints" ) ) then return end
+	local function OnPlayerSpawn( ply, transition )
+		if !transition and tobool( ply:GetInfo( "lambdaplayers_teamsystem_plyusespawnpoints" ) ) then
+			local plyTeam = ply:GetInfo( "lambdaplayers_teamsystem_playerteam" )
+			local spawnPoint = LTS_SelectTeamSpawn( plyTeam == "" and nil or plyTeam )
+			if IsValid( spawnPoint ) then
+				ply:SetPos( spawnPoint:GetPos() )
+				ply:SetEyeAngles( spawnPoint:GetAngles() )
+			end
+		end
 
-        local plyTeam = ply:GetInfo( "lambdaplayers_teamsystem_playerteam" )
-        local spawnPoint = LTS_SelectTeamSpawn( plyTeam == "" and nil or plyTeam )
-        if IsValid( spawnPoint ) then
-            ply:SetPos( spawnPoint:GetPos() )
-            ply:SetEyeAngles( spawnPoint:GetAngles() )
-        end
-    end
+		if GetGlobalInt( "LambdaTeamMatch_GameID", 0 ) == 3
+		and LambdaTeams.TDM_IsElimination and LambdaTeams:TDM_IsElimination()
+		and LambdaTeams.TDM_IsActorEliminated and LambdaTeams:TDM_IsActorEliminated( ply ) then
+			timer_Simple( 0, function()
+				if !IsValid( ply ) or !ply:Alive() then return end
+				ply:StripWeapons()
+				ply:Lock()
+				ply:Spectate( OBS_MODE_ROAMING )
+			end )
+		end
+			timer_Simple( 0, function()
+            if LambdaTeams and LambdaTeams.TDM_RefreshLiveColors then
+                LambdaTeams:TDM_RefreshLiveColors()
+            end
+        end )
+	end
 
 	local function LTS_ChatAll(...)
 		if LambdaPlayers_ChatAdd then
@@ -1868,58 +1956,377 @@ if ( SERVER ) then
 		end
 
 	end
+	
+	local function LTS_TDMColorToVector( clr )
+		if isvector( clr ) then return clr end
+		if IsColor( clr ) then return clr:ToVector() end
+		return vector_origin
+	end
+
+	local function LTS_TDMGetDisplayColorVec( ent )
+		if !IsValid( ent ) then return vector_origin end
+
+		if LambdaTeams.TDM_FFAUniqueColorsEnabled
+		and LambdaTeams:TDM_FFAUniqueColorsEnabled()
+		and LambdaTeams.TDM_GetUniqueColor
+		then
+			return LTS_TDMColorToVector( LambdaTeams:TDM_GetUniqueColor( ent ) )
+		end
+
+		local teamName = LambdaTeams:GetPlayerTeam( ent )
+		local teamClr = ( teamName and LambdaTeams:GetTeamColor( teamName ) ) or nil
+		if teamClr then
+			return LTS_TDMColorToVector( teamClr )
+		end
+
+		if ent.l_TeamColor then
+			return LTS_TDMColorToVector( ent.l_TeamColor )
+		end
+
+		return ent:GetNW2Vector( "lambda_teamcolor", vector_origin )
+	end
+
+	local function LTS_TDMApplyEntityColor( ent )
+		if !IsValid( ent ) then return end
+
+		local vecClr = LTS_TDMGetDisplayColorVec( ent )
+
+		if ent.IsLambdaPlayer then
+			ent:SetPlyColor( vecClr )
+		elseif ent:IsPlayer() and ent.SetPlayerColor then
+			ent:SetPlayerColor( vecClr )
+		end
+
+		ent:SetNW2Vector( "lambda_teamcolor", vecClr )
+		ent:SetNWVector( "lambda_teamcolor", vecClr )
+	end
+
+	local function LTS_TDMRefreshAllColors()
+		for _, ent in ipairs( table_Add( GetLambdaPlayers(), player_GetAll() ) ) do
+			if !IsValid( ent ) then continue end
+			LTS_TDMApplyEntityColor( ent )
+		end
+	end
+
+	local function LTS_TDMSendReveal( ply, revealEnts, expireAt )
+		if !IsValid( ply ) or !ply:IsPlayer() then return end
+		if !revealEnts or #revealEnts == 0 then return end
+
+		net.Start( "lambda_teamsystem_tdm_reveal" )
+			net.WriteUInt( math.min( #revealEnts, 255 ), 8 )
+			net.WriteFloat( expireAt )
+
+			for i = 1, math.min( #revealEnts, 255 ) do
+				net.WriteEntity( revealEnts[ i ] )
+			end
+		net.Send( ply )
+	end
+
+	function LambdaTeams:TDM_RefreshLiveColors()
+		LTS_TDMRefreshAllColors()
+	end
+
+	function LambdaTeams:TDM_ActivateUAV( owner )
+		if !IsValid( owner ) then return end
+		if self:GetCurrentGamemodeID() != 3 then return end
+
+		local revealEnts = {}
+		local expireAt = CurTime() + ( self.TDM_GetUAVRevealTime and self:TDM_GetUAVRevealTime() or 12 )
+
+		for _, ent in ipairs( table_Add( GetLambdaPlayers(), player_GetAll() ) ) do
+			if !IsValid( ent ) or ent == owner then continue end
+			if ent.IsLambdaPlayer and ent:GetIsDead() then continue end
+			if ent:IsPlayer() and !ent:Alive() then continue end
+
+			if self:TDM_IsFFA() then
+				revealEnts[ #revealEnts + 1 ] = ent
+			elseif !self:AreTeammates( owner, ent ) then
+				revealEnts[ #revealEnts + 1 ] = ent
+			end
+		end
+
+		if #revealEnts == 0 then return end
+
+		if self:TDM_IsFFA() then
+			if owner:IsPlayer() then
+				LTS_TDMSendReveal( owner, revealEnts, expireAt )
+			end
+		else
+			for _, ply in ipairs( player_GetAll() ) do
+				if !IsValid( ply ) or !ply:Alive() then continue end
+				if self:AreTeammates( owner, ply ) then
+					LTS_TDMSendReveal( ply, revealEnts, expireAt )
+				end
+			end
+		end
+	end
+
+	local function LTS_SR_GetInt( cvarName, fallback )
+		local cv = GetConVar( cvarName )
+		return ( cv and cv:GetInt() ) or fallback
+	end
+
+	local function LTS_SR_GetFloat( cvarName, fallback )
+		local cv = GetConVar( cvarName )
+		return ( cv and cv:GetFloat() ) or fallback
+	end
+
+	local function LTS_SR_GetString( cvarName, fallback )
+		local cv = GetConVar( cvarName )
+		return ( cv and cv:GetString() ) or fallback
+	end
+
+	local function SpawnSingleSalvageTag( pos, victimTeam, victimEntIndex, value, isGeneratorPickup )
+		local pickup = ents.Create( "lambda_salvage_tag" )
+		if !IsValid( pickup ) then return nil end
+
+		pickup:SetPos( pos )
+		pickup:SetAngles( Angle( 0, math.random( 0, 360 ), 0 ) )
+
+		local pickupDelay = math.max( 0, LTS_SR_GetFloat( "lambdaplayers_teamsystem_salvagerun_pickupenable_delay", 0.25 ) )
+		local pickupEnableAt = CurTime() + pickupDelay
+
+		pickup.RemoveAt = CurTime() + math.max( 1, LTS_SR_GetInt( "lambdaplayers_teamsystem_salvagerun_removetime", 20 ) )
+		pickup.VictimTeam = victimTeam or "__generator__"
+		pickup.VictimEntIndex = ( victimEntIndex != nil and victimEntIndex or -1 )
+		pickup.PickupEnableAt = pickupEnableAt
+		pickup.PickupValue = math.max( 1, math.floor( value or 1 ) )
+		pickup.IsGeneratorSalvage = isGeneratorPickup or false
+
+		local mdl = LTS_SR_GetString( "lambdaplayers_teamsystem_salvagerun_custommodel", "" )
+		if mdl != "" then
+			pickup.TagModel = mdl
+		end
+
+		pickup:Spawn()
+		pickup:Activate()
+
+		pickup:SetNW2String( "LTS_KD_VictimTeam", pickup.VictimTeam )
+		pickup:SetNWString( "LTS_KD_VictimTeam", pickup.VictimTeam )
+		pickup:SetNW2Int( "LTS_KD_VictimEntIndex", pickup.VictimEntIndex )
+		pickup:SetNWInt( "LTS_KD_VictimEntIndex", pickup.VictimEntIndex )
+		pickup:SetNW2Float( "LTS_KD_PickupEnableAt", pickupEnableAt )
+		pickup:SetNWFloat( "LTS_KD_PickupEnableAt", pickupEnableAt )
+		pickup:SetNW2Int( "LTS_SalvageValue", pickup.PickupValue )
+		pickup:SetNWInt( "LTS_SalvageValue", pickup.PickupValue )
+		pickup:SetNW2Bool( "LTS_SalvageGeneratorPickup", pickup.IsGeneratorSalvage )
+		pickup:SetNWBool( "LTS_SalvageGeneratorPickup", pickup.IsGeneratorSalvage )
+
+		local phys = pickup:GetPhysicsObject()
+		if IsValid( phys ) then
+			phys:Wake()
+			phys:SetVelocity( VectorRand() * math.random( 40, 100 ) + Vector( 0, 0, math.random( 30, 90 ) ) )
+		end
+
+		return pickup
+	end
+
+	local function SpawnSalvageBurst( pos, victimTeam, victimEntIndex, totalValue, isGeneratorPickup )
+		totalValue = math.max( 1, math.floor( totalValue or 1 ) )
+
+		local pieces = math.min( totalValue, 8 )
+		local baseValue = math.floor( totalValue / pieces )
+		local remainder = ( totalValue % pieces )
+
+		for i = 1, pieces do
+			local pieceValue = baseValue + ( i <= remainder and 1 or 0 )
+			local spawnPos = pos + VectorRand() * 14 + Vector( 0, 0, 4 * i )
+
+			SpawnSingleSalvageTag( spawnPos, victimTeam, victimEntIndex, pieceValue, isGeneratorPickup )
+		end
+	end
+	
+	function LambdaTeams:DropSalvageCarry( victim, amount )
+		if !IsValid( victim ) then return end
+		amount = math.max( 1, math.floor( amount or 0 ) )
+
+		local victimTeam = LambdaTeams:GetPlayerTeam( victim )
+		if !victimTeam or victimTeam == "" then
+			victimTeam = team.GetName( victim:Team() )
+		end
+		if !victimTeam or victimTeam == "" then return end
+
+		SpawnSalvageBurst( victim:GetPos() + Vector( 0, 0, 45 ), victimTeam, victim:EntIndex(), amount, false )
+	end
+
+	function LambdaTeams:SpawnGeneratorSalvage( pos, amount )
+		SpawnSalvageBurst( pos, "__generator__", -1, amount, true )
+	end
 
 	local function CreateSalvagePickup( victim )
 		if CLIENT then return end
-		if not IsValid( victim ) then return end
+		if !IsValid( victim ) then return end
 
 		local victimTeam = LambdaTeams:GetPlayerTeam( victim )
-		if not victimTeam or victimTeam == "" then
+		if !victimTeam or victimTeam == "" then
 			victimTeam = team.GetName( victim:Team() )
 		end
-		if not victimTeam or victimTeam == "" then return end
+		if !victimTeam or victimTeam == "" then return end
 
-		local pickupdos = ents.Create( "lambda_salvage_tag" )
-		if not IsValid( pickupdos ) then return end
-
-		pickupdos:SetPos( victim:GetPos() + Vector( 0, 0, 45 ) )
-		pickupdos:SetAngles( Angle( 0, math.random( 0, 360 ), 0 ) )
-
-		local pickupDelay = math.max( 0, ( salvagePickupEnableDelay and salvagePickupEnableDelay:GetFloat() ) or 0.25 )
-		local pickupEnableAt = CurTime() + pickupDelay
-
-		pickupdos.RemoveAt = CurTime() + salvageRemoveTime:GetInt()
-		pickupdos.VictimTeam = victimTeam
-		pickupdos.VictimEntIndex = victim:EntIndex()
-		pickupdos.PickupEnableAt = pickupEnableAt
-
-
-		local mdl = salvageCustomMdl:GetString()
-		if mdl ~= "" then
-			pickupdos.TagModel = mdl
+		local dropCount = 1
+		if salvageRandomizeDrops and salvageRandomizeDrops:GetBool() then
+			local minDrops = math.max( 1, salvageRandomizeDropsMin:GetInt() )
+			local maxDrops = math.max( minDrops, salvageRandomizeDropsMax:GetInt() )
+			dropCount = math.random( minDrops, maxDrops )
 		end
 
-		pickupdos:Spawn()
-		pickupdos:Activate()
-		
-		pickupdos:SetNW2String( "LTS_KD_VictimTeam", victimTeam )
-		pickupdos:SetNWString( "LTS_KD_VictimTeam", victimTeam )
-		pickupdos:SetNWInt( "LTS_KD_VictimEntIndex", victim:EntIndex() )
-		pickupdos:SetNWFloat( "LTS_KD_PickupEnableAt", pickupEnableAt )
-
-		local finalModel = ( mdl ~= "" and mdl or "models/props_lab/reciever01d.mdl" )
-		if pickupdos:GetModel() ~= finalModel then
-			pickupdos:SetModel( finalModel )
-			pickupdos:SetModelScale( 0.85, 0 )
-			pickupdos:PhysicsInit( SOLID_VPHYSICS )
-			pickupdos:SetMoveType( MOVETYPE_VPHYSICS )
-			pickupdos:SetSolid( SOLID_VPHYSICS )
-
-			local phys = pickupdos:GetPhysicsObject()
-			if IsValid( phys ) then phys:Wake() end
-		end
-
+		SpawnSalvageBurst( victim:GetPos() + Vector( 0, 0, 45 ), victimTeam, victim:EntIndex(), dropCount, false )
 	end
+	
+	LambdaTeams.SR_CombineState = LambdaTeams.SR_CombineState or {
+		nextSpawnAt = 0,
+		escalateUntil = 0,
+		killTimes = {},
+		active = {}
+	}
+
+	local function LTS_GetSalvageObjectives()
+		local out = {}
+		table.Add( out, ents.FindByClass( "lambda_salvage_bank" ) )
+		table.Add( out, ents.FindByClass( "lambda_salvage_generator" ) )
+		return out
+	end
+
+	local function LTS_SR_CleanupPatrols()
+		local state = LambdaTeams.SR_CombineState
+		local alive = 0
+
+		for i = #state.active, 1, -1 do
+			local npc = state.active[ i ]
+			if !IsValid( npc ) then
+				table.remove( state.active, i )
+			else
+				alive = alive + 1
+			end
+		end
+
+		return alive
+	end
+
+	local function LTS_SR_HumanNearObjective()
+		if !salvageCombineHumanNearOnly or !salvageCombineHumanNearOnly:GetBool() then return true end
+
+		local radius = math.max( 100, salvageCombineHumanNearDist:GetInt() )
+		local radiusSqr = radius * radius
+		local objs = LTS_GetSalvageObjectives()
+
+		if #objs == 0 then return false end
+
+		for _, ply in ipairs( player.GetAll() ) do
+			if !IsValid( ply ) or !ply:Alive() then continue end
+
+			for _, obj in ipairs( objs ) do
+				if IsValid( obj ) and ply:GetPos():DistToSqr( obj:GetPos() ) <= radiusSqr then
+					return true
+				end
+			end
+		end
+
+		return false
+	end
+
+	local function LTS_SR_FindSpawnPos( anchor )
+		local base = anchor:GetPos()
+
+		for _ = 1, 18 do
+			local dir = VectorRand()
+			dir.z = 0
+			dir:Normalize()
+
+			local dist = math.random( 350, 900 )
+			local startPos = base + ( dir * dist ) + Vector( 0, 0, 200 )
+
+			local tr = util.TraceLine( {
+				start = startPos,
+				endpos = startPos - Vector( 0, 0, 1200 ),
+				mask = MASK_SOLID_BRUSHONLY
+			} )
+
+			if tr.Hit and !tr.HitSky then
+				return tr.HitPos + Vector( 0, 0, 8 )
+			end
+		end
+
+		return base + Vector( 0, 0, 8 )
+	end
+
+	local function LTS_SR_SpawnPatrolNPC( className, pos )
+		local npc = ents.Create( className )
+		if !IsValid( npc ) then return nil end
+
+		npc:SetPos( pos )
+		npc:SetAngles( Angle( 0, math.random( 0, 360 ), 0 ) )
+
+		if className == "npc_combine_s" then
+			npc:SetKeyValue( "additionalequipment", "weapon_ar2" )
+		end
+
+		npc.LTS_SRPatrol = true
+		npc:Spawn()
+		npc:Activate()
+
+		LambdaTeams.SR_CombineState.active[ #LambdaTeams.SR_CombineState.active + 1 ] = npc
+		return npc
+	end
+
+	function LambdaTeams:SalvageRun_CombineTick()
+		if GetGlobalInt( "LambdaTeamMatch_GameID", 0 ) != 7 then return end
+		if !salvageCombinePatrols or !salvageCombinePatrols:GetBool() then return end
+
+		local objs = LTS_GetSalvageObjectives()
+		if #objs == 0 then return end
+		if !LTS_SR_HumanNearObjective() then return end
+
+		local state = LambdaTeams.SR_CombineState
+		local aliveCount = LTS_SR_CleanupPatrols()
+
+		if CurTime() < ( state.nextSpawnAt or 0 ) then return end
+
+		local maxAlive = math.max( 1, salvageCombinePatrolMaxAlive:GetInt() )
+		local interval = math.max( 3, salvageCombinePatrolInterval:GetFloat() )
+		local anchor = table.Random( objs )
+		local spawnPos = LTS_SR_FindSpawnPos( anchor )
+
+		if CurTime() < ( state.escalateUntil or 0 ) then
+			if aliveCount < ( maxAlive + 2 ) then
+				local heavyClass = ( math.random( 1, 2 ) == 1 and "npc_strider" or "npc_combinegunship" )
+				if heavyClass == "npc_combinegunship" then
+					spawnPos = spawnPos + Vector( 0, 0, 220 )
+				end
+
+				LTS_SR_SpawnPatrolNPC( heavyClass, spawnPos )
+			end
+		else
+			if aliveCount < maxAlive then
+				LTS_SR_SpawnPatrolNPC( "npc_combine_s", spawnPos )
+			end
+		end
+
+		state.nextSpawnAt = CurTime() + interval
+	end
+
+	hook.Add( "OnNPCKilled", modulePrefix .. "SalvageRun_CombineEscalation", function( npc )
+		if GetGlobalInt( "LambdaTeamMatch_GameID", 0 ) != 7 then return end
+		if !IsValid( npc ) or npc:GetClass() != "npc_combine_s" or !npc.LTS_SRPatrol then return end
+		if !salvageCombineEscalation or !salvageCombineEscalation:GetBool() then return end
+
+		local state = LambdaTeams.SR_CombineState
+		local now = CurTime()
+		local window = math.max( 1, salvageCombineEscalationWindow:GetFloat() )
+
+		state.killTimes[ #state.killTimes + 1 ] = now
+
+		for i = #state.killTimes, 1, -1 do
+			if ( now - state.killTimes[ i ] ) > window then
+				table.remove( state.killTimes, i )
+			end
+		end
+
+		if #state.killTimes >= math.max( 1, salvageCombineEscalationKills:GetInt() ) then
+			state.killTimes = {}
+			state.escalateUntil = now + math.max( 5, salvageCombineEscalationDuration:GetFloat() )
+		end
+	end )
 
 	local function LTS_SyncEnabledToClients()
 		SetGlobalBool( "LambdaTeamSystem_Enabled", TeamSystemEnabled() )
@@ -1969,6 +2376,62 @@ if ( SERVER ) then
 		dmginfo:SetDamage( 0 )
 		return true
 	end )
+	
+	local function LTS_TDMOnDeath( victim, attacker )
+		if LambdaTeams:GetCurrentGamemodeID() != 3 then return end
+
+		if LambdaTeams.TDM_RegisterCompetitor then
+			if IsValid( attacker ) then LambdaTeams:TDM_RegisterCompetitor( attacker ) end
+			if IsValid( victim ) then LambdaTeams:TDM_RegisterCompetitor( victim ) end
+		end
+
+		if LambdaTeams.TDM_ResetKillstreak then
+			LambdaTeams:TDM_ResetKillstreak( victim )
+		end
+
+		local attackerKey = ( LambdaTeams.TDM_GetCompetitorKey and LambdaTeams:TDM_GetCompetitorKey( attacker ) ) or nil
+		local victimKey = ( LambdaTeams.TDM_GetCompetitorKey and LambdaTeams:TDM_GetCompetitorKey( victim ) ) or nil
+
+		if attackerKey and victimKey and attacker != victim then
+			if LambdaTeams:TDM_IsFFA() or !LambdaTeams:AreTeammates( attacker, victim ) then
+				if LambdaTeams.TDM_TryFirstBlood then
+					LambdaTeams:TDM_TryFirstBlood( attacker, victim )
+				end
+
+				local pointGain = 1
+
+				if LambdaTeams.TDM_HasDoublePoints and LambdaTeams:TDM_HasDoublePoints( attacker ) then
+					pointGain = 2
+				end
+
+				LambdaTeams:AddTeamPoints( attackerKey, pointGain )
+
+				if LambdaTeams.TDM_AddKillstreak then
+					LambdaTeams:TDM_AddKillstreak( attacker )
+
+					if LambdaTeams.TDM_GetKillstreak
+					and LambdaTeams:TDM_GetKillstreak( attacker ) == 3
+					and LambdaTeams.TDM_ActivateUAV
+					then
+						LambdaTeams:TDM_ActivateUAV( attacker )
+					end
+				end
+			end
+		end
+
+		if LambdaTeams.TDM_IsElimination and LambdaTeams:TDM_IsElimination() then
+			LambdaTeams:TDM_MarkEliminated( victim )
+
+			if IsValid( victim ) and victim.IsLambdaPlayer and victim.SetRespawn then
+				if LambdaTeams.TDM_StoreRespawnState then
+					LambdaTeams:TDM_StoreRespawnState( victim )
+				end
+				victim:SetRespawn( false )
+			end
+
+			LambdaTeams:TDM_CheckEliminationWin()
+		end
+	end
 
     local function LambdaOnKilled( lambda, dmginfo )
 		local gamemodeID = LambdaTeams:GetCurrentGamemodeID()
@@ -1984,8 +2447,7 @@ if ( SERVER ) then
 		end
 
 		if gamemodeID == 3 then
-			local attackerTeam = LambdaTeams:GetPlayerTeam( dmginfo:GetAttacker() )
-			if attackerTeam then LambdaTeams:AddTeamPoints( attackerTeam, 1 ) end
+			LTS_TDMOnDeath( lambda, dmginfo:GetAttacker() )
 
 		elseif gamemodeID == 4 then
 			CreateKDPickup( lambda )
@@ -2001,7 +2463,7 @@ if ( SERVER ) then
 
 	local function OnPlayerDeath( ply, inflictor, attacker )
 		local gamemodeID = LambdaTeams:GetCurrentGamemodeID()
-		
+			
 		if gamemodeID == 1 and GetGlobalBool( "LambdaTeamMatch_IsConquest", false ) then
 			local cv = GetConVar( "lambdaplayers_teamsystem_conquest_killdrain" )
 			local drain = ( cv and cv:GetInt() or 1 )
@@ -2012,10 +2474,8 @@ if ( SERVER ) then
 			end
 		end
 
-
 		if gamemodeID == 3 then
-			local attackerTeam = LambdaTeams:GetPlayerTeam( attacker )
-			if attackerTeam then LambdaTeams:AddTeamPoints( attackerTeam, 1 ) end
+			LTS_TDMOnDeath( ply, attacker )
 
 		elseif gamemodeID == 4 then
 			CreateKDPickup( ply )
@@ -2026,6 +2486,19 @@ if ( SERVER ) then
 			if LambdaTeams.OnSalvageCarrierKilled then
 				LambdaTeams:OnSalvageCarrierKilled( ply )
 			end
+		end
+
+		if gamemodeID == 3
+		and !( LambdaTeams.TDM_IsElimination and LambdaTeams:TDM_IsElimination() ) then
+			local delay = ( LambdaTeams.TDM_GetRespawnDelay and LambdaTeams:TDM_GetRespawnDelay() ) or 0
+
+			timer_Simple( math.max( 0, delay ), function()
+				if !IsValid( ply ) then return end
+				if GetGlobalInt( "LambdaTeamMatch_GameID", 0 ) != 3 then return end
+				if ply:Alive() then return end
+
+				ply:Spawn()
+			end )
 		end
 	end
 

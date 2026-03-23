@@ -133,7 +133,7 @@ local attackOthers = CreateLambdaConvar( "lambdaplayers_teamsystem_attackotherte
 local stickTogether = CreateLambdaConvar( "lambdaplayers_teamsystem_sticktogether", 1, true, false, false, "If enabled, Lambda Players will attempt to stay together with their teamates.", 0, 1, { name = "Stick Together", type = "Bool", category = "Team System" } )
 local huntDown = CreateLambdaConvar( "lambdaplayers_teamsystem_huntdownotherteams", 0, true, false, false, "If enabled, Lambda Players will hunt down other Lambda Players not on their team (enable Attack On Sight for this to take full effect).", 0, 1, { name = "Hunt Down Enemy Teams", type = "Bool", category = "Team System" } )
 local teamAggression = CreateLambdaConvar( "lambdaplayers_teamsystem_aggression", 50, true, false, false, "How committed Lambda Players should be when reacting to enemy teams (Lower values make them break off sooner, Higher values make them chase harder & longer).", 0, 100, { name = "Aggression Level", type = "Slider", decimals = 0, category = "Team System" } )
-local specificCampWeapons = CreateLambdaConvar( "lambdaplayers_teamsystem_specificcampweapons", "m9k_hvy_areshrike, m9k_hvy_aw50, m9k_hvy_bar, m9k_hvy_barret_m82, m9k_hvy_barret_m98b, m9k_hvy_dragunov_svd, m9k_hvy_dragunov_svu, m9k_hvy_fg42, m9k_hvy_g2contender, m9k_hvy_hksl8, m9k_hvy_intervention, m9k_hvy_m24, m9k_hvy_m60, m9k_hvy_m249, m9k_hvy_pkm, m9k_hvy_psg1, m9k_hvy_remington_7615p, m9k_hvy_svt40", true, false, false, "(Comma separated) If a Lambda Player is using one of these weapons, they may hold their position and fire from range instead of pushing forward (THIS HAS BEEN TESTED ONLY WITH THE LAMBDA PLAYER M9K ADDON, THIS MAY NOT WORK WITH OTHERS).", 0, 1, { name = "Specific Lambda Players Can Camp (M9K)", type = "Text", category = "Team System" } )
+local specificCampWeapons = CreateLambdaConvar( "lambdaplayers_teamsystem_specificcampweapons", "m9k_hvy_areshrike, m9k_hvy_aw50, m9k_hvy_bar, m9k_hvy_barret_m82, m9k_hvy_barret_m98b, m9k_hvy_dragunov_svd, m9k_hvy_dragunov_svu, m9k_hvy_fg42, m9k_hvy_g2contender, m9k_hvy_hksl8, m9k_hvy_intervention, m9k_hvy_m24, m9k_hvy_m60, m9k_hvy_m249, m9k_hvy_pkm, m9k_hvy_psg1, m9k_hvy_remington_7615p, m9k_hvy_svt40", true, false, false, "If a Lambda Player is using a defined weapon, they may hold their position and fire from range instead of pushing forward (EACH VALUE NEEDS TO BE A WEAPON CLASS LAMBDAS CAN USE, HUMAN WEAPONS WILL NOT WORK).", 0, 1 )
 local noFriendFire = CreateLambdaConvar( "lambdaplayers_teamsystem_nofriendlyfire", 1, true, false, false, "If enabled, Lambda & Human players will not be able to damage each other if they're on the same team.", 0, 1, { name = "No Friendly Fire", type = "Bool", category = "Team System" } )
 local useSpawnpoints = CreateLambdaConvar( "lambdaplayers_teamsystem_usespawnpoints", 0, true, false, false, "If enabled, Lambda Players will respawn at one of their team's spawn points.", 0, 1, { name = "Respawn In Team Spawn Points", type = "Bool", category = "Team System" } )
 local plyUseSpawnpoints = CreateLambdaConvar( "lambdaplayers_teamsystem_plyusespawnpoints", 0, true, true, true, "If enabled, you will respawn at one of your Lambda Team's spawn points.", 0, 1, { name = "Respawn In Team Spawn Points", type = "Bool", category = "Team System" } )
@@ -171,16 +171,31 @@ local matchWinReason, matchWinTeam
 local nextTimerProgressT = ( CurTime() + 1 )
 
 local function GetTheMatchStats( endedPrematurely )
-    local winnerTeam, winnerClr
+    local winnerTeam, winnerClr, winnerDisplayName
     local curPoints, samePoints = 0, 0
+
+    local isTDMFFA = (
+        GetGlobalInt( "LambdaTeamMatch_GameID", 0 ) == 3
+        and LambdaTeams.TDM_IsFFA
+        and LambdaTeams:TDM_IsFFA()
+    )
 
     local contesters = {}
     for teamName, globalName in pairs( LambdaTeams.TeamPoints ) do
         local teamPoints = GetGlobalInt( globalName, 0 )
-        local teamColor = LambdaTeams:GetTeamColor( teamName, true )
+
+        local displayName = teamName
+        local teamColor = LambdaTeams:GetTeamColor( teamName, true ) or color_white
+
+        if isTDMFFA and LambdaTeams.TDM_GetCompetitorDisplay then
+            local dispName, dispClr = LambdaTeams:TDM_GetCompetitorDisplay( teamName )
+            displayName = dispName or teamName
+            teamColor = dispClr or teamColor
+        end
 
         if teamPoints > curPoints or !winnerTeam then
             winnerTeam = teamName
+            winnerDisplayName = displayName
             winnerClr = teamColor
             curPoints = teamPoints
             samePoints = 1
@@ -188,156 +203,85 @@ local function GetTheMatchStats( endedPrematurely )
             samePoints = ( samePoints + 1 )
         end
 
-        contesters[ #contesters + 1 ] = { teamName, teamPoints, teamColor }
+        contesters[ #contesters + 1 ] = { displayName, teamPoints, teamColor }
     end
 
+    table.sort( contesters, function( a, b )
+        return a[ 2 ] > b[ 2 ]
+    end )
+
     if samePoints != #contesters then
+        local winName = ( winnerDisplayName or winnerTeam or "Unknown" )
+
         if matchWinReason == "assault_fullcap" and matchWinTeam == winnerTeam then
             LambdaPlayers_ChatAdd(
                 nil,
                 color_white, "[LTS] ",
-                winnerClr, winnerTeam,
+                winnerClr, winName,
                 color_glacier, " won the match of ",
                 color_white, gamemodeName,
                 color_glacier, " by capturing every sector!"
             )
         elseif matchWinReason == "assault_timeout" and matchWinTeam == winnerTeam then
             LambdaPlayers_ChatAdd(
-			
                 nil,
                 color_white, "[LTS] ",
-                winnerClr, winnerTeam,
+                winnerClr, winName,
                 color_glacier, " won the match of ",
                 color_white, gamemodeName,
                 color_glacier, " by holding the line until time expired!"
             )
-		elseif matchWinReason == "sabotage_lastsite" and matchWinTeam == winnerTeam then
-			LambdaPlayers_ChatAdd(
-				nil,
-				color_white, "[LTS] ",
-				winnerClr, winnerTeam,
-				color_glacier, " won the match of ",
-				color_white, gamemodeName,
-				color_glacier, " by being the last team with a sabotage site!"
-			)
+        elseif matchWinReason == "sabotage_lastsite" and matchWinTeam == winnerTeam then
+            LambdaPlayers_ChatAdd(
+                nil,
+                color_white, "[LTS] ",
+                winnerClr, winName,
+                color_glacier, " won the match of ",
+                color_white, gamemodeName,
+                color_glacier, " by being the last team with a sabotage site!"
+            )
         else
             LambdaPlayers_ChatAdd(
                 nil,
                 color_white, "[LTS] ",
-                winnerClr, winnerTeam,
+                winnerClr, winName,
                 color_glacier, " won the match of ",
                 color_white, gamemodeName,
                 color_glacier, " with total of ",
                 color_white, tostring( curPoints ),
                 color_glacier, " ",
                 pointsName,
-                ( curPoints > 1 and "s" or "" ),
                 "!"
             )
         end
 
-        LambdaTeams:PlayConVarSound( "lambdaplayers_teamsystem_gamemodes_snd_onwin", winnerTeam )
+        LambdaTeams:PlayConVarSound(
+            "lambdaplayers_teamsystem_gamemodes_snd_onwin",
+            isTDMFFA and "all" or winnerTeam
+        )
 
-		for _, contestData in ipairs( contesters ) do
-			local contestTeam = contestData[ 1 ]
-			if contestTeam == winnerTeam then continue end
+        for _, data in ipairs( contesters ) do
+            if data[ 1 ] == winName then continue end
 
-			local contestPoints = contestData[ 2 ]
-			local contestClr = contestData[ 3 ]
-
-			if gamemodeName == "Assault" then
-				if matchWinReason == "assault_fullcap" then
-					LambdaPlayers_ChatAdd(
-						nil,
-						color_white, "[LTS] ",
-						contestClr, contestTeam,
-						color_glacier, " failed to hold the sectors >:("
-					)
-				elseif matchWinReason == "assault_timeout" then
-					LambdaPlayers_ChatAdd(
-						nil,
-						color_white, "[LTS] ",
-						contestClr, contestTeam,
-						color_glacier, " failed to breach every sector before time expired D:"
-					)
-				else
-					LambdaPlayers_ChatAdd(
-						nil,
-						color_white, "[LTS] ",
-						contestClr, contestTeam,
-						color_glacier, " captured ",
-						color_white, tostring( contestPoints ),
-						color_glacier, " sector",
-						( contestPoints != 1 and "s" or "" ),
-						"."
-					)
-				end
-			
-			elseif gamemodeName == "Sabotage" then
-				local lostSite = ( LambdaTeams.IsSabotageTeamAlive and !LambdaTeams:IsSabotageTeamAlive( contestTeam ) )
-
-				if lostSite then
-					LambdaPlayers_ChatAdd(
-						nil,
-						color_white, "[LTS] ",
-						contestClr, contestTeam,
-						color_glacier, " lost their sabotage site."
-					)
-				elseif contestPoints > 0 then
-					LambdaPlayers_ChatAdd(
-						nil,
-						color_white, "[LTS] ",
-						contestClr, contestTeam,
-						color_glacier, " destroyed ",
-						color_white, tostring( contestPoints ),
-						color_glacier, " enemy site",
-						( contestPoints != 1 and "s" or "" ),
-						"."
-					)
-				else
-					LambdaPlayers_ChatAdd(
-						nil,
-						color_white, "[LTS] ",
-						contestClr, contestTeam,
-						color_glacier, " failed to destroy any enemy sites."
-					)
-				end
-	
-			elseif contestPoints == 0 then
-				LambdaPlayers_ChatAdd(
-					nil,
-					color_white, "[LTS] ",
-					contestClr, contestTeam,
-					color_glacier, " ended up with no ",
-					pointsName,
-					"s at all :("
-				)
-			else
-				LambdaPlayers_ChatAdd(
-					nil,
-					color_white, "[LTS] ",
-					contestClr, contestTeam,
-					color_glacier, " ended with total of ",
-					color_white, tostring( contestPoints ),
-					color_glacier, " ",
-					pointsName,
-					( contestPoints > 1 and "s" or "" )
-				)
-			end
-
-			LambdaTeams:PlayConVarSound( "lambdaplayers_teamsystem_gamemodes_snd_onlose", contestTeam )
-		end
-		
-    elseif !endedPrematurely then
+            LambdaPlayers_ChatAdd(
+                nil,
+                color_white, "[LTS] ",
+                data[ 3 ], data[ 1 ],
+                color_glacier, " had a total of ",
+                color_white, tostring( data[ 2 ] ),
+                color_glacier, " ",
+                pointsName,
+                "!"
+            )
+        end
+    else
         LambdaPlayers_ChatAdd(
             nil,
             color_white, "[LTS] ",
-            color_glacier, "Stalemate! Each team got the same amount of ",
-            pointsName,
-            ( curPoints > 1 and "s" or "" ),
-            "!"
+            color_glacier, "The match of ",
+            color_white, gamemodeName,
+            color_glacier, " ended in a draw!"
         )
-        LambdaTeams:PlayConVarSound( "lambdaplayers_teamsystem_gamemodes_snd_onlose" )
     end
 end
 
@@ -944,49 +888,6 @@ function LambdaTeams:GetCurrentGamemodeID()
     return GetGlobalInt( "LambdaTeamMatch_GameID", 0 )
 end
 
-local function LTS_SetBoolCompat( ent, key, val )
-    if !IsValid( ent ) then return end
-    ent:SetNW2Bool( key, val )
-    ent:SetNWBool( key, val )
-end
-
-local function LTS_SetIntCompat( ent, key, val )
-    if !IsValid( ent ) then return end
-    ent:SetNW2Int( key, val )
-    ent:SetNWInt( key, val )
-end
-
-local function LTS_SetStringCompat( ent, key, val )
-    if !IsValid( ent ) then return end
-    ent:SetNW2String( key, val )
-    ent:SetNWString( key, val )
-end
-
-local function LTS_GetMatchTeams()
-    local teams = {}
-    local seen = {}
-
-    for teamName, _ in pairs( LambdaTeams.TeamPoints ) do
-        if !teamName or teamName == "" or seen[ teamName ] then continue end
-
-        teams[ #teams + 1 ] = teamName
-        seen[ teamName ] = true
-    end
-
-    if #teams == 0 then
-        for _, ent in ipairs( ents_GetAll() ) do
-            local entTeam = LambdaTeams:GetPlayerTeam( ent )
-            if !entTeam or entTeam == "" or seen[ entTeam ] then continue end
-
-            teams[ #teams + 1 ] = entTeam
-            seen[ entTeam ] = true
-        end
-    end
-
-    table.sort( teams )
-    return teams
-end
-
 local function LTS_SetTempFriendly( teamA, teamB, isFriendly )
     if !teamA or !teamB or teamA == "" or teamB == "" or teamA == teamB then return end
 
@@ -1042,6 +943,32 @@ function LambdaTeams:GetNearestSalvageBank( teamName, fromPos )
     return nearest
 end
 
+local function LTS_SalvageDropCarryOnDeath()
+    local cv = salvageDropCarryOnDeath or GetConVar( "lambdaplayers_teamsystem_salvagerun_dropcarryondeath" )
+    return ( cv and cv:GetBool() ) or false
+end
+
+local function LTS_SalvageGeneratorEnabled()
+    local cv = salvageGeneratorEnabled or GetConVar( "lambdaplayers_teamsystem_salvagerun_generator_enabled" )
+    return ( cv and cv:GetBool() ) or false
+end
+
+function LambdaTeams:GetNearestSalvageGenerator( fromPos )
+    local nearest, nearestDist
+
+    for _, gen in ipairs( ents_FindByClass( "lambda_salvage_generator" ) ) do
+        if !IsValid( gen ) then continue end
+
+        local dist = fromPos:DistToSqr( gen:GetPos() )
+        if !nearestDist or dist < nearestDist then
+            nearest = gen
+            nearestDist = dist
+        end
+    end
+
+    return nearest
+end
+
 function LambdaTeams:TryBankSalvage( ent )
     if !IsValid( ent ) then return false end
 
@@ -1076,16 +1003,30 @@ function LambdaTeams:TryBankSalvage( ent )
     return true
 end
 
-function LambdaTeams:OnSalvageCollected( collector, victimTeam, tagEnt )
+function LambdaTeams:OnSalvageCollected( collector, victimTeam, pickup )
     if !IsValid( collector ) then return false end
 
     local collectorTeam = LambdaTeams:GetPlayerTeam( collector )
-    if !collectorTeam then return false end
+    if !collectorTeam or collectorTeam == "" then return false end
 
-    local enemyConfirm = ( victimTeam and victimTeam != "" and victimTeam != collectorTeam )
+    local value = 1
+    local isGeneratorPickup = false
+
+    if IsValid( pickup ) then
+        value = math.max( 1, math.floor(
+            pickup.PickupValue
+            or pickup:GetNW2Int( "LTS_SalvageValue", pickup:GetNWInt( "LTS_SalvageValue", 1 ) )
+        ) )
+
+        isGeneratorPickup =
+            pickup.IsGeneratorSalvage
+            or pickup:GetNW2Bool( "LTS_SalvageGeneratorPickup", pickup:GetNWBool( "LTS_SalvageGeneratorPickup", false ) )
+    end
+
+    local enemyConfirm = ( isGeneratorPickup or victimTeam != collectorTeam )
 
     if enemyConfirm then
-        LambdaTeams:AddSalvageCarry( collector, 1 )
+        LambdaTeams:AddSalvageCarry( collector, value )
         LambdaTeams:PlayConVarSound( "lambdaplayers_teamsystem_kd_snd_confirm", collectorTeam )
     else
         LambdaTeams:PlayConVarSound( "lambdaplayers_teamsystem_kd_snd_deny", collectorTeam )
@@ -1102,8 +1043,20 @@ function LambdaTeams:OnSalvageCollected( collector, victimTeam, tagEnt )
 end
 
 function LambdaTeams:OnSalvageCarrierKilled( victim )
-    if !IsValid( victim ) or !LTS_SalvageLoseOnDeath() then return end
-    LambdaTeams:SetSalvageCarry( victim, 0 )
+    if !IsValid( victim ) then return end
+
+    local carry = LambdaTeams:GetSalvageCarry( victim )
+    if carry <= 0 then return end
+
+    if SERVER and LTS_SalvageDropCarryOnDeath() and LambdaTeams.DropSalvageCarry then
+        LambdaTeams:DropSalvageCarry( victim, carry )
+        LambdaTeams:SetSalvageCarry( victim, 0 )
+        return
+    end
+
+    if LTS_SalvageLoseOnDeath() then
+        LambdaTeams:SetSalvageCarry( victim, 0 )
+    end
 end
 
 function LambdaTeams:GetSabotageSite( teamName )
@@ -1566,6 +1519,10 @@ function LambdaTeams:SalvageRun_Tick()
 
         LambdaTeams:TryBankSalvage( ent )
     end
+
+    if SERVER and LambdaTeams.SalvageRun_CombineTick then
+        LambdaTeams:SalvageRun_CombineTick()
+    end
 end
 
 function LambdaTeams:Sabotage_Tick()
@@ -1689,6 +1646,27 @@ end
         end
     end
 	
+	if LambdaTeams.TDM_StoredRespawn then
+        for _, lambda in ipairs( GetLambdaPlayers() ) do
+            if !IsValid( lambda ) or !lambda.IsLambdaPlayer or !lambda.SetRespawn then continue end
+            if LambdaTeams.TDM_RestoreRespawnState then
+                LambdaTeams:TDM_RestoreRespawnState( lambda )
+            end
+        end
+    end
+	
+	if LambdaTeams.TDM_ResetState then
+        LambdaTeams:TDM_ResetState()
+    end
+
+    for _, ply in ipairs( player_GetAll() ) do
+        if !IsValid( ply ) then continue end
+        ply:UnLock()
+        if ply:GetObserverMode() != OBS_MODE_NONE then
+            ply:UnSpectate()
+        end
+    end
+	
 	LTS_ClearAssaultFlags()
 
 	LambdaTeams.Assault_State = nil
@@ -1703,6 +1681,14 @@ end
 	
 	matchWinReason = nil
 	matchWinTeam = nil
+	
+	if SERVER and LambdaTeams.TDM_RefreshLiveColors then
+        timer_Simple( 0, function()
+            if LambdaTeams and LambdaTeams.TDM_RefreshLiveColors then
+                LambdaTeams:TDM_RefreshLiveColors()
+            end
+        end )
+    end
 
 end
 
@@ -1765,6 +1751,10 @@ local function GameMatchThinkTimer()
 	local timeRemain = GetGlobalInt( "LambdaTeamMatch_TimeRemaining", 0 )
 	if timeRemain != -1 and CurTime() >= nextTimerProgressT then
 		if timeRemain == 0 then
+		    if gameID == 3 and LambdaTeams.TDM_HandleTimeLimit and LambdaTeams:TDM_HandleTimeLimit() then
+                return
+            end
+			
 			if gameID == 6 and LambdaTeams.Assault_State then
 				matchWinReason = "assault_timeout"
 				matchWinTeam = LambdaTeams.Assault_State.DefendTeam
@@ -1832,9 +1822,17 @@ local function StartGamemode( ply, gameIndex, stopSnds )
 			LambdaPlayers_Notify( ply, "The assault gamemode requires at least one Assault point!", 1, "buttons/button10.wav" )
 			return
 		end
-	elseif gameIndex == 7 and #ents_FindByClass( "lambda_salvage_bank" ) == 0 then
-		LambdaPlayers_Notify( ply, "The salvage run gamemode requires at least one Salvage Run bank!", 1, "buttons/button10.wav" )
-		return
+	elseif gameIndex == 7 then
+		local bankCount = #ents_FindByClass( "lambda_salvage_bank" )
+		if bankCount == 0 then
+			LambdaPlayers_Notify( ply, "The salvage run gamemode requires at least one Salvage Run bank!", 1, "buttons/button10.wav" )
+			return
+		end
+
+		if LTS_SalvageGeneratorEnabled() and #ents_FindByClass( "lambda_salvage_generator" ) == 0 then
+			LambdaPlayers_Notify( ply, "Salvage Generator is enabled, but no lambda_salvage_generator entities are placed!", 1, "buttons/button10.wav" )
+			return
+		end
     elseif gameIndex == 8 and #ents_FindByClass( "lambda_sabotage_site" ) < 2 then
         LambdaPlayers_Notify( ply, "The sabotage gamemode requires at least two sabotage sites!", 1, "buttons/button10.wav" )
         return
@@ -1849,7 +1847,8 @@ local function StartGamemode( ply, gameIndex, stopSnds )
     SetGlobalBool( "LambdaTeamMatch_IsConquest", isConquest )
 
     SetGlobalInt( "LambdaTeamMatch_GameID", gameIndex )
-	SetGlobalInt( "LambdaTeamMatch_PointLimit", ( isConquest or gameIndex == 6 ) and 0 or gmPointsLimit:GetInt() )
+    local isTDMElim = ( gameIndex == 3 and LambdaTeams.TDM_IsElimination and LambdaTeams:TDM_IsElimination() )
+    SetGlobalInt( "LambdaTeamMatch_PointLimit", ( isConquest or gameIndex == 6 or isTDMElim ) and 0 or gmPointsLimit:GetInt() )
 
     local ticketsStart = gmPointsLimit:GetInt()
     if ticketsStart <= 0 then ticketsStart = 200 end
@@ -1859,10 +1858,22 @@ local function StartGamemode( ply, gameIndex, stopSnds )
         SetGlobalInt( globalName, 0 )
     end
     table.Empty( LambdaTeams.TeamPoints )
+		if LambdaTeams.TDM_ResetState then
+			LambdaTeams:TDM_ResetState()
+		end
 
     local curTeams = {}
     for _, p in ipairs( table_Add( GetLambdaPlayers(), player_GetAll() ) ) do
-        local pTeam = LambdaTeams:GetPlayerTeam( p )
+        local pTeam
+        if gameIndex == 3 and LambdaTeams.TDM_IsFFA and LambdaTeams:TDM_IsFFA() then
+            pTeam = LambdaTeams:TDM_GetCompetitorKey( p )
+            if pTeam and LambdaTeams.TDM_RegisterCompetitor then
+                LambdaTeams:TDM_RegisterCompetitor( p )
+            end
+        else
+            pTeam = LambdaTeams:GetPlayerTeam( p )
+        end
+
         if not pTeam then continue end
 
         if not LambdaTeams.TeamPoints[ pTeam ] then
@@ -1880,11 +1891,11 @@ local function StartGamemode( ply, gameIndex, stopSnds )
         gamemodeName = "Capture The Flag"
         pointsName = "flag captured"
     elseif gameIndex == 3 then
-        gamemodeName = "Team Deathmatch"
+        gamemodeName = ( LambdaTeams.TDM_IsFFA and LambdaTeams:TDM_IsFFA() ) and "Free For All" or "Team Deathmatch"
         pointsName = "kills"
     elseif gameIndex == 4 then
         gamemodeName = "Kill Confirmed"
-        pointsName = "kill confirm"
+        pointsName = "kills confirmed"
     elseif gameIndex == 5 then
         gamemodeName = "Headquarters"
         pointsName = "HQ points"
@@ -1963,7 +1974,15 @@ local function StartGamemode( ply, gameIndex, stopSnds )
         LambdaPlayers_Notify( ply, "You need at least " .. minTeams .. " active teams to start this match!", 1, "buttons/button10.wav" )
         return
     end
-
+	
+	if SERVER and LambdaTeams.TDM_RefreshLiveColors then
+        timer_Simple( 0, function()
+            if LambdaTeams and LambdaTeams.TDM_RefreshLiveColors then
+                LambdaTeams:TDM_RefreshLiveColors()
+            end
+        end )
+    end
+	
 	if gameIndex == 6 then
 		LambdaTeams:Assault_Rebuild()
 
@@ -2118,6 +2137,21 @@ CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_onreturn", "lambdaplayers/
 
 ---
 
+local tdmFFAMode = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_ffa", 0, true, false, false, "If enabled, Team Deathmatch becomes Free For All and everybody scores individually (YOU NEED TO ENABLE FRIENDLY FIRE TO ATTACK TEAMATES).", 0, 1, { name = "Free For All", type = "Bool", category = "Team System - TDM" } )
+local tdmElimination = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_elimination", 0, true, false, false, "If enabled, Team Deathmatch becomes elimination and dead players stay out until the match ends.", 0, 1, { name = "Elimination Mode", type = "Bool", category = "Team System - TDM" } )
+local tdmRespawnDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_respawndelay", 3.0, true, false, false, "How long TDM should wait before a dead combatant is allowed to respawn. Ignored by elimination mode.", 0.0, 30.0, { name = "Respawn Delay", type = "Slider", decimals = 1, category = "Team System - TDM" } )
+local tdmOvertime = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_overtime", 1, true, false, false, "If enabled, tied TDM matches enter overtime instead of ending immediately on time limit.", 0, 1, { name = "Enable Overtime", type = "Bool", category = "Team System - TDM" } )
+local tdmKillstreaks = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreaks", 1, true, false, false, "If enabled, Lambda Players & Human Players can earn bonuses after a certain amount of kills (TESTED ONLY ON TEAM DEATHMATCH & WITHOUT GAMEMODE CHANGING CONVARS).", 0, 1, { name = "Enable Killstreaks", type = "Bool", category = "Team System - TDM" } )
+local tdmKillstreakArmor = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreak_5_armor", 35, true, false, false, "How much armor a player gets on a 5 kill streak.", 0, 500, { name = "5 Killstreak Armor Bonus", type = "Slider", decimals = 0, category = "Team System - TDM" } )
+local tdmKillstreakDoubleTime = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreak_7_doublepoints_time", 20, true, false, false, "How long 7 kill streak double points lasts.", 1, 120, { name = "7 Killstreak Double Points Time", type = "Slider", decimals = 0, category = "Team System - TDM" } )
+local tdmFFAUniqueColors = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_ffa_uniquecolors", 1, true, false, false, "If enabled, Free For All gives every competitor a unique color for HUD/halos/model tinting.", 0, 1, { name = "FFA Unique Colors", type = "Bool", category = "Team System - TDM" } )
+local tdmUAVRevealTime = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreak_3_uav_time", 12, true, false, false, "How long the 3 kill streak UAV reveals enemies for.", 1, 60, { name = "3 Killstreak UAV Time", type = "Slider", decimals = 0, category = "Team System - TDM" } )
+local tdmFirstBlood = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_firstblood", 1, true, false, false, "If enabled, the first valid TDM kill triggers a First Blood announcement.", 0, 1, { name = "Enable First Blood", type = "Bool", category = "Team System - TDM" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_killstreak_3", "", true, true, false, "Sound that plays when someone reaches a 3 kill streak.", 0, 1, { name = "Sound - 3 Killstreak", type = "Text", category = "Team System - TDM" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_killstreak_5", "", true, true, false, "Sound that plays when someone reaches a 5 kill streak.", 0, 1, { name = "Sound - 5 Killstreak", type = "Text", category = "Team System - TDM" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_killstreak_7", "", true, true, false, "Sound that plays when someone reaches a 7 kill streak.", 0, 1, { name = "Sound - 7 Killstreak", type = "Text", category = "Team System - TDM" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_firstblood", "", true, true, false, "The sound that plays when First Blood happens in TDM.", 0, 1, { name = "Sound - First Blood", type = "Text", category = "Team System - TDM" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_5killsleft", "", true, true, false, "The sound that plays when there are only 5 kills left to win.", 0, 1, { name = "Sound - 5 Kills Left", type = "Text", category = "Team System - TDM" } )
 CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_10killsleft", "lambdaplayers/tdm/10killsleft.mp3", true, true, false, "The sound that plays when there are only 10 kills left to win.", 0, 1, { name = "Sound - 10 Kills Left", type = "Text", category = "Team System - TDM" } )
 
 ---
@@ -2125,7 +2159,7 @@ CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_10killsleft", "lambdaplaye
 local kdPickupEnableDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_pickupenable_delay", 0.25, true, false, false, "Delay before newly dropped KD tags can be collected.", 0.0, 3.0, { name = "Pickup Enable Delay", type = "Slider", decimals = 2, category = "Team System - KD" } )
 local kdRemoveTime = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_removetime", 20, true, false, false, "For how much time the pickups can be dropped before they disappear?", 1, 120, { name = "Pickup Remove Time", type = "Slider", decimals = 0, category = "Team System - KD" } )
 local kdCustomMdl = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_custommodel", "", true, false, false, "Custom model that will be set for the pickup. Leave empty to use default skull model.", 0, 1, { name = "Pickup Custom Model", type = "Text", category = "Team System - KD" } )
-local kdUsePoints = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_usekothpoints", 0, true, false, false, "If enabled, tags will need to be dropped off at a KOTH point before team points are given (A KOTH point is required, this is not recommend due to Salvage Run's existence).", 0, 1, { name = "Pickups Use KOTH Points", type = "Bool", category = "Team System - KD" } )
+local kdUsePoints = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_usekothpoints", 0, true, false, false, "If enabled, tags will need to be dropped off at a KOTH point before team points are given (A KOTH POINT IS REQUIRED).", 0, 1, { name = "Pickups Use KOTH Points", type = "Bool", category = "Team System - KD" } )
 local kdPickupSounds = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_pickupsounds", 1, true, true, false, "If enabled, KD confirm/deny sounds will play.", 0, 1, { name = "Enable Confirm/Deny Sounds", type = "Bool", category = "Team System - KD" } )
 local kdDrawWorldText = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_worldtext", 1, true, true, false, "If enabled, KD tags will draw confirm/deny world text.", 0, 1, { name = "Draw Confirm/Deny World Text", type = "Bool", category = "Team System - KD" } )
 local kdWorldTextDist = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_worldtextdist", 1500, true, true, false, "Max distance to draw KD tag world text.", 200, 8000, { name = "World Text Max Distance", type = "Slider", decimals = 0, category = "Team System - KD" } )
@@ -2155,17 +2189,31 @@ local assaultWorldTextDist = CreateLambdaConvar( "lambdaplayers_teamsystem_assau
 local assaultCapRate = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_capturerate", 0.2, true, false, false, "The speed rate of capturing Assault points.", 0.01, 5.0, { name = "Capture Rate", type = "Slider", decimals = 2, category = "Team System - Assault" } )
 local assaultCapRange = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_capturerange", 500, true, false, false, "How close players should be to start capturing an Assault point.", 100, 2000, { name = "Capture Range", type = "Slider", decimals = 0, category = "Team System - Assault" } )
 
-
 local salvageBankRange = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_bankrange", 250, true, false, false, "How close a salvage carrier must be to a friendly bank point to deposit their carried salvage.", 50, 1000, { name = "Bank Range", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
 local salvageLoseOnDeath = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_loseondeath", 1, true, false, false, "If enabled, carried salvage is lost when the carrier dies.", 0, 1, { name = "Lose Carry On Death", type = "Bool", category = "Team System - Salvage Run" } )
 local salvageBankFirstCapture = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_bankfirstcapture", 0, true, false, false, "If enabled, Lambdas will try to secure one bank before focusing on salvage pickups.", 0, 1, { name = "Prioritize Capturing A Bank", type = "Bool", category = "Team System - Salvage Run" } )
 local salvageBankInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_bank_incombat", 0, true, false, false, "If enabled, Lambdas can bank salvage while in combat.", 0, 1, { name = "Bank In Combat", type = "Bool", category = "Team System - Salvage Run" } )
 local salvageGuardBanks = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_guardbanks", 0, true, false, false, "If enabled, some Lambdas will guard friendly banks instead of only chasing salvage.", 0, 1, { name = "Guard Friendly Banks", type = "Bool", category = "Team System - Salvage Run" } )
 local salvagePickupEnableDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_pickupenable_delay", 0.25, true, false, false, "Delay before newly dropped salvage can be collected.", 0.0, 3.0, { name = "Pickup Enable Delay", type = "Slider", decimals = 2, category = "Team System - Salvage Run" } )
-local salvageRemoveTime = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_removetime", 20, true, false, false, "How long dropped salvage remains before disappearing.", 1, 120, { name = "Pickup Remove Time", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-local salvageDrawWorldText = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_worldtext", 1, true, true, false, "If enabled, dropped salvage will draw world text.", 0, 1, { name = "Draw World Text", type = "Bool", category = "Team System - Salvage Run" } )
-local salvageWorldTextDist = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_worldtextdist", 2500, true, true, false, "Max distance at which salvage world text is drawn.", 250, 10000, { name = "World Text Distance", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-local salvageCustomMdl = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_custommodel", "", true, false, false, "Custom model for dropped salvage (leave empty to use KD tag).", 0, 1, { name = "Pickup Custom Model", type = "Text", category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_dropcarryondeath", 0, true, false, false, "If enabled, carried salvage is dropped on death instead of being deleted.", 0, 1, { name = "Drop Carry On Death", type = "Bool", category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_enabled", 0, true, false, false, "If enabled, if a Salvage Generator entity is spawned, it can manually produce salvage during the Salvage Run gamemode.", 0, 1, { name = "Enable Salvage Generator", type = "Bool", category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_userange", 140, true, false, false, "How close players must be to operate a Salvage Generator.", 50, 400, { name = "Generator Use Range", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_lambdatime", 2.5, true, false, false, "How long Lambdas must stay near the generator before it produces salvage.", 0.5, 15.0, { name = "Lambda Generator Time", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_humantime", 2.0, true, false, false, "How long humans must hold +USE on the generator before it produces salvage.", 0.5, 15.0, { name = "Human Generator Time", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_cooldown", 4.0, true, false, false, "Cooldown between Salvage Generator outputs.", 0.0, 30.0, { name = "Generator Cooldown", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_yield", 2, true, false, false, "How much salvage each generator cycle produces.", 1, 12, { name = "Generator Yield", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_randomizedrops", 0, true, false, false, "If enabled, killed players drop a randomized amount of salvage tags.", 0, 1, { name = "Randomize Death Drops", type = "Bool", category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_min", 1, true, false, false, "Minimum randomized salvage tags dropped on death.", 1, 20, { name = "Salvage Drop Min", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_max", 3, true, false, false, "Maximum randomized salvage tags dropped on death.", 1, 20, { name = "Salvage Drop Max", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols", 0, true, false, false, "If enabled, the Combine will spawn & patrol Banks + Generators during the Salvage Run gamemode (This turns the gamemode into PVPVE, use the Team Alliances feature to turn it into PVE).", 0, 1, { name = "Enable Combine Patrols", type = "Bool", category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_interval", 20.0, true, false, false, "How often Combine patrols will attempt to spawn.", 3.0, 120.0, { name = "Patrol Spawn Interval", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_maxalive", 5, true, false, false, "Maximum amount of alive Combine patrol NPCs spawned by Salvage Run.", 1, 30, { name = "Patrol Max Alive", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_nearhuman", 0, true, false, false, "If enabled, patrols only spawn when at least one human player is near a generator or bank.", 0, 1, { name = "Only Spawn Near Humans", type = "Bool", category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_humanrange", 1400, true, false, false, "How close a human player must be to a generator or bank for patrol spawning to be allowed.", 200, 6000, { name = "Human Nearby Range", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation", 0, true, false, false, "If enabled, heavy Combine casualties escalate into Strider/Gunship support for a short time.", 0, 1, { name = "Enable Combine Escalation", type = "Bool", category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation_kills", 6, true, false, false, "How many Combine Soldier deaths are needed to trigger escalation.", 1, 30, { name = "Escalation Kill Count", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation_window", 20.0, true, false, false, "Time window used when counting Combine casualties for escalation.", 3.0, 120.0, { name = "Escalation Window", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation_duration", 30.0, true, false, false, "How long the escalation state lasts.", 5.0, 180.0, { name = "Escalation Duration", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
 
 local sabotagePlantTime = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_planttime", 3.0, true, false, false, "How long it takes to arm an enemy bomb site.", 0.5, 15.0, { name = "Plant Time", type = "Slider", decimals = 1, category = "Team System - Sabotage" } )
 local sabotageAbsorbLosers = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_absorblosers", 1, true, false, false, "If enabled, teams that lose their site become friendly to a surviving team.", 0, 1, { name = "Absorb Destroyed Teams", type = "Bool", category = "Team System - Sabotage" } )
@@ -2200,6 +2248,423 @@ CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_ondestroy_enemy", "", true,
 
 ---
 
+local function LTS_TDMSanitizeKey( str )
+    str = tostring( str or "" )
+    str = string.Trim( str )
+    return string.gsub( str, "[^%w_%-]", "_" )
+end
+
+local function LTS_TDMIsAlive( ent )
+    if !IsValid( ent ) then return false end
+    if ent.IsLambdaPlayer then return !ent:GetIsDead() end
+    if ent:IsPlayer() then return ent:Alive() end
+    return false
+end
+
+function LambdaTeams:TDM_IsFFA()
+    local cv = tdmFFAMode or GetConVar( "lambdaplayers_teamsystem_tdm_ffa" )
+    return ( self:GetCurrentGamemodeID() == 3 and cv and cv:GetBool() ) or false
+end
+
+function LambdaTeams:TDM_IsElimination()
+    local cv = tdmElimination or GetConVar( "lambdaplayers_teamsystem_tdm_elimination" )
+    return ( self:GetCurrentGamemodeID() == 3 and cv and cv:GetBool() ) or false
+end
+
+function LambdaTeams:TDM_GetRespawnDelay()
+    local cv = tdmRespawnDelay or GetConVar( "lambdaplayers_teamsystem_tdm_respawndelay" )
+    return math.max( 0, ( cv and cv:GetFloat() ) or 0 )
+end
+
+function LambdaTeams:TDM_OvertimeEnabled()
+    local cv = tdmOvertime or GetConVar( "lambdaplayers_teamsystem_tdm_overtime" )
+    return ( self:GetCurrentGamemodeID() == 3 and cv and cv:GetBool() ) or false
+end
+
+function LambdaTeams:TDM_GetActorKey( ent )
+    if !IsValid( ent ) then return end
+
+    if ent:IsPlayer() then
+        local sid64 = ent:SteamID64()
+        return "ffa_ply_" .. ( sid64 and sid64 != "" and sid64 or tostring( ent:EntIndex() ) )
+    elseif ent.IsLambdaPlayer then
+        local name = ( ent.GetLambdaName and ent:GetLambdaName() ) or ent.l_Name or "lambda"
+        local createID = ( ent.GetCreationID and ent:GetCreationID() ) or ent:EntIndex()
+        return "ffa_lambda_" .. LTS_TDMSanitizeKey( name ) .. "_" .. tostring( createID )
+    end
+end
+
+function LambdaTeams:TDM_GetCompetitorKey( ent )
+    if !IsValid( ent ) then return end
+    if self:TDM_IsFFA() then
+        return self:TDM_GetActorKey( ent )
+    end
+    return self:GetPlayerTeam( ent )
+end
+
+function LambdaTeams:TDM_RegisterCompetitor( ent )
+    if !IsValid( ent ) then return end
+
+    local key = self:TDM_GetCompetitorKey( ent )
+    if !key then return end
+
+    self.TDM_CompetitorData = self.TDM_CompetitorData or {}
+
+    local displayName
+    if self:TDM_IsFFA() then
+        displayName = ( ent:IsPlayer() and ent:Nick() )
+            or ( ent.GetLambdaName and ent:GetLambdaName() )
+            or ent.l_Name
+            or key
+    else
+        displayName = key
+    end
+
+    local displayColor = color_white
+    local teamName = self:GetPlayerTeam( ent )
+
+    if self:TDM_IsFFA() and self:TDM_FFAUniqueColorsEnabled() then
+        displayColor = self:TDM_GetUniqueColor( ent )
+    elseif teamName then
+        displayColor = self:GetTeamColor( teamName, true ) or displayColor
+    elseif ent:IsPlayer() then
+        displayColor = team.GetColor( ent:Team() )
+    end
+
+    self.TDM_CompetitorData[ key ] = {
+        name = displayName,
+        color = displayColor
+    }
+end
+
+function LambdaTeams:TDM_GetCompetitorDisplay( key )
+    local data = self.TDM_CompetitorData and self.TDM_CompetitorData[ key ]
+    if data then
+        return data.name, data.color
+    end
+
+    -- Try to rebuild the display from live entities first
+    for _, ent in ipairs( table_Add( GetLambdaPlayers(), player_GetAll() ) ) do
+        if !IsValid( ent ) then continue end
+        if self:TDM_GetCompetitorKey( ent ) != key then continue end
+
+        local name = key
+        local clr = color_white
+
+        if ent:IsPlayer() then
+            name = ent:Nick()
+            clr = team.GetColor( ent:Team() )
+        elseif ent.IsLambdaPlayer then
+            name = ( ent.GetLambdaName and ent:GetLambdaName() ) or ent.l_Name or "Lambda"
+            local teamName = self:GetPlayerTeam( ent )
+            clr = ( teamName and self:GetTeamColor( teamName, true ) ) or color_white
+        end
+
+        return name, clr
+    end
+
+    -- Last-resort cosmetic fallback
+    if isstring( key ) then
+        if string.StartWith( key, "ffa_ply_" ) then
+            return "Player", color_white
+        elseif string.StartWith( key, "ffa_lambda_" ) then
+            local clean = string.sub( key, 12 )
+            clean = string.gsub( clean, "_%d+$", "" )
+            clean = string.gsub( clean, "_", " " )
+            return clean, color_white
+        end
+    end
+
+    return key, self:GetTeamColor( key, true ) or color_white
+end
+
+function LambdaTeams:TDM_ResetState()
+    self.TDM_CompetitorData = {}
+    self.TDM_EliminatedActors = {}
+    self.TDM_OvertimeUsed = false
+    self.TDM_Killstreaks = {}
+    self.TDM_DoublePointsUntil = {}
+    self.TDM_StoredRespawn = {}
+    self.TDM_FFAColorCache = {}
+    self.TDM_FirstBloodDone = false
+end
+
+function LambdaTeams:TDM_MarkEliminated( ent )
+    if !self:TDM_IsElimination() or !IsValid( ent ) then return end
+
+    local actorKey = self:TDM_GetActorKey( ent )
+    if !actorKey then return end
+
+    self.TDM_EliminatedActors = self.TDM_EliminatedActors or {}
+    self.TDM_EliminatedActors[ actorKey ] = true
+end
+
+function LambdaTeams:TDM_IsActorEliminated( ent )
+    if !self:TDM_IsElimination() or !IsValid( ent ) then return false end
+
+    local actorKey = self:TDM_GetActorKey( ent )
+    return ( actorKey and self.TDM_EliminatedActors and self.TDM_EliminatedActors[ actorKey ] ) or false
+end
+
+function LambdaTeams:TDM_GetAliveCompetitors()
+    local alive = {}
+
+    for _, ent in ipairs( table_Add( GetLambdaPlayers(), player_GetAll() ) ) do
+        if !IsValid( ent ) or !LTS_TDMIsAlive( ent ) then continue end
+        if self:TDM_IsActorEliminated( ent ) then continue end
+
+        local key = self:TDM_GetCompetitorKey( ent )
+        if !key then continue end
+
+        alive[ key ] = true
+    end
+
+    return alive
+end
+
+function LambdaTeams:TDM_CheckEliminationWin()
+    if !self:TDM_IsElimination() then return end
+
+    local alive = self:TDM_GetAliveCompetitors()
+    local winnerKey, aliveCount = nil, 0
+
+    for key, _ in pairs( alive ) do
+        winnerKey = key
+        aliveCount = aliveCount + 1
+    end
+
+    if aliveCount != 1 or !winnerKey then return end
+
+    local curPoints = self:GetTeamPoints( winnerKey )
+    local pointLimit = GetGlobalInt( "LambdaTeamMatch_PointLimit", 0 )
+    local winAt = math.max( pointLimit, curPoints + 1, 1 )
+
+    SetGlobalInt( "LambdaTeamMatch_PointLimit", winAt )
+    self:AddTeamPoints( winnerKey, winAt - curPoints )
+end
+
+function LambdaTeams:TDM_HandleTimeLimit()
+    if self:GetCurrentGamemodeID() != 3 then return false end
+
+    if self:TDM_IsElimination() then
+        self:TDM_CheckEliminationWin()
+        return false
+    end
+
+    if !self:TDM_OvertimeEnabled() or self.TDM_OvertimeUsed then
+        return false
+    end
+
+    local bestScore, tiedCount = nil, 0
+
+    for _, globalName in pairs( self.TeamPoints ) do
+        local score = GetGlobalInt( globalName, 0 )
+
+        if bestScore == nil or score > bestScore then
+            bestScore = score
+            tiedCount = 1
+        elseif score == bestScore then
+            tiedCount = tiedCount + 1
+        end
+    end
+
+    if tiedCount <= 1 then return false end
+
+    self.TDM_OvertimeUsed = true
+    nextTimerProgressT = CurTime() + 1
+    SetGlobalInt( "LambdaTeamMatch_TimeRemaining", 30 )
+
+    LambdaPlayers_ChatAdd(
+        nil,
+        color_white, "[LTS] ",
+        color_glacier, "TDM is tied! Overtime has begun!"
+    )
+
+    return true
+end
+
+function LambdaTeams:TDM_StoreRespawnState( ent )
+    if !IsValid( ent ) or !ent.IsLambdaPlayer or !ent.GetRespawn then return end
+
+    local actorKey = self:TDM_GetActorKey( ent )
+    if !actorKey then return end
+
+    self.TDM_StoredRespawn = self.TDM_StoredRespawn or {}
+    if self.TDM_StoredRespawn[ actorKey ] == nil then
+        self.TDM_StoredRespawn[ actorKey ] = ent:GetRespawn()
+    end
+end
+
+function LambdaTeams:TDM_RestoreRespawnState( ent )
+    if !IsValid( ent ) or !ent.IsLambdaPlayer or !ent.SetRespawn then return end
+
+    local actorKey = self:TDM_GetActorKey( ent )
+    if !actorKey then return end
+
+    local old = self.TDM_StoredRespawn and self.TDM_StoredRespawn[ actorKey ]
+    if old == nil then return end
+
+    ent:SetRespawn( old )
+    self.TDM_StoredRespawn[ actorKey ] = nil
+end
+
+function LambdaTeams:TDM_KillstreaksEnabled()
+    local cv = tdmKillstreaks or GetConVar( "lambdaplayers_teamsystem_tdm_killstreaks" )
+    return ( self:GetCurrentGamemodeID() == 3 and cv and cv:GetBool() ) or false
+end
+
+function LambdaTeams:TDM_GetKillstreak( ent )
+    if !IsValid( ent ) then return 0 end
+    local actorKey = self:TDM_GetActorKey( ent )
+    if !actorKey then return 0 end
+
+    self.TDM_Killstreaks = self.TDM_Killstreaks or {}
+    return self.TDM_Killstreaks[ actorKey ] or 0
+end
+
+function LambdaTeams:TDM_ResetKillstreak( ent )
+    if !IsValid( ent ) then return end
+    local actorKey = self:TDM_GetActorKey( ent )
+    if !actorKey then return end
+
+    self.TDM_Killstreaks = self.TDM_Killstreaks or {}
+    self.TDM_Killstreaks[ actorKey ] = 0
+
+    self.TDM_DoublePointsUntil = self.TDM_DoublePointsUntil or {}
+    self.TDM_DoublePointsUntil[ actorKey ] = nil
+end
+
+function LambdaTeams:TDM_HasDoublePoints( ent )
+    if !IsValid( ent ) then return false end
+    local actorKey = self:TDM_GetActorKey( ent )
+    if !actorKey then return false end
+
+    self.TDM_DoublePointsUntil = self.TDM_DoublePointsUntil or {}
+    local untilT = self.TDM_DoublePointsUntil[ actorKey ]
+    return ( untilT != nil and CurTime() < untilT )
+end
+
+function LambdaTeams:TDM_AnnounceKillstreak( ent, text, sndCvar )
+    if !IsValid( ent ) then return end
+
+    self:TDM_RegisterCompetitor( ent )
+
+    local compKey = self:TDM_GetCompetitorKey( ent ) or self:TDM_GetActorKey( ent )
+    local dispName, dispClr = self:TDM_GetCompetitorDisplay( compKey )
+
+    LambdaPlayers_ChatAdd(
+        nil,
+        color_white, "[LTS] ",
+        dispClr or color_white, dispName or "Unknown",
+        color_glacier, text
+    )
+
+    if sndCvar and sndCvar != "" then
+        self:PlayConVarSound( sndCvar, "all" )
+    end
+end
+
+function LambdaTeams:TDM_AddKillstreak( ent )
+    if !IsValid( ent ) or !self:TDM_KillstreaksEnabled() then return end
+
+    local actorKey = self:TDM_GetActorKey( ent )
+    if !actorKey then return end
+
+    self.TDM_Killstreaks = self.TDM_Killstreaks or {}
+    local streak = ( self.TDM_Killstreaks[ actorKey ] or 0 ) + 1
+    self.TDM_Killstreaks[ actorKey ] = streak
+
+    if streak == 3 then
+        self:TDM_AnnounceKillstreak(
+            ent,
+            self:TDM_IsFFA() and " reached a 3 kill streak and received a UAV!"
+                or " reached a 3 kill streak and received a UAV!",
+            "lambdaplayers_teamsystem_tdm_snd_killstreak_3"
+        )
+
+    elseif streak == 5 then
+        local armorBonus = math.max( 0, ( tdmKillstreakArmor and tdmKillstreakArmor:GetInt() ) or 35 )
+
+        if ent:IsPlayer() then
+            ent:SetArmor( ent:Armor() + armorBonus )
+        elseif ent.IsLambdaPlayer and ent.SetArmor then
+            ent:SetArmor( ent:Armor() + armorBonus )
+        end
+
+        self:TDM_AnnounceKillstreak( ent, " reached a 5 kill streak and gained bonus armor!", "lambdaplayers_teamsystem_tdm_snd_killstreak_5" )
+
+    elseif streak == 7 then
+        local dur = math.max( 1, ( tdmKillstreakDoubleTime and tdmKillstreakDoubleTime:GetFloat() ) or 20 )
+
+        self.TDM_DoublePointsUntil = self.TDM_DoublePointsUntil or {}
+        self.TDM_DoublePointsUntil[ actorKey ] = CurTime() + dur
+
+        self:TDM_AnnounceKillstreak( ent, " reached a 7 kill streak and now has double points!", "lambdaplayers_teamsystem_tdm_snd_killstreak_7" )
+    end
+end
+
+local function LTS_TDMHashHue( str )
+    local hash = 0
+    for i = 1, #str do
+        hash = ( ( hash * 33 ) + string.byte( str, i ) ) % 360
+    end
+    return hash
+end
+
+function LambdaTeams:TDM_FFAUniqueColorsEnabled()
+    local cv = tdmFFAUniqueColors or GetConVar( "lambdaplayers_teamsystem_tdm_ffa_uniquecolors" )
+    return ( self:GetCurrentGamemodeID() == 3 and self:TDM_IsFFA() and cv and cv:GetBool() ) or false
+end
+
+function LambdaTeams:TDM_GetUAVRevealTime()
+    local cv = tdmUAVRevealTime or GetConVar( "lambdaplayers_teamsystem_tdm_killstreak_3_uav_time" )
+    return math.max( 1, ( cv and cv:GetFloat() ) or 12 )
+end
+
+function LambdaTeams:TDM_FirstBloodEnabled()
+    local cv = tdmFirstBlood or GetConVar( "lambdaplayers_teamsystem_tdm_firstblood" )
+    return ( self:GetCurrentGamemodeID() == 3 and cv and cv:GetBool() ) or false
+end
+
+function LambdaTeams:TDM_GetUniqueColor( ent )
+    if !IsValid( ent ) then return color_white end
+
+    local actorKey = self:TDM_GetActorKey( ent )
+    if !actorKey then return color_white end
+
+    self.TDM_FFAColorCache = self.TDM_FFAColorCache or {}
+
+    local cached = self.TDM_FFAColorCache[ actorKey ]
+    if cached then return cached end
+
+    local clr = HSVToColor( LTS_TDMHashHue( actorKey ), 0.75, 1 )
+    self.TDM_FFAColorCache[ actorKey ] = clr
+
+    return clr
+end
+
+function LambdaTeams:TDM_TryFirstBlood( attacker, victim )
+    if !self:TDM_FirstBloodEnabled() or self.TDM_FirstBloodDone then return end
+    if !IsValid( attacker ) or !IsValid( victim ) or attacker == victim then return end
+
+    if !self:TDM_IsFFA() and self:AreTeammates( attacker, victim ) then return end
+
+    self.TDM_FirstBloodDone = true
+    self:TDM_RegisterCompetitor( attacker )
+
+    local compKey = self:TDM_GetCompetitorKey( attacker ) or self:TDM_GetActorKey( attacker )
+    local dispName, dispClr = self:TDM_GetCompetitorDisplay( compKey )
+
+    LambdaPlayers_ChatAdd(
+        nil,
+        color_white, "[LTS] ",
+        dispClr or color_white, dispName or "Unknown",
+        color_glacier, " drew First Blood!"
+    )
+
+    self:PlayConVarSound( "lambdaplayers_teamsystem_tdm_snd_firstblood", "all" )
+end
+
 function LambdaTeams:GetCurrentGamemodeID()
     return GetGlobalInt( "LambdaTeamMatch_GameID", 0 )
 end
@@ -2233,9 +2698,20 @@ function LambdaTeams:AddTeamPoints( teamName, count )
         if cap > 0 and newCount > cap then newCount = cap end
     end
 
-    if LambdaTeams:GetCurrentGamemodeID() == 3 and ( GetGlobalInt( "LambdaTeamMatch_PointLimit" ) - newCount ) == 10 then
-        LambdaPlayers_ChatAdd( nil, color_white, "[LTS] ", LambdaTeams:GetTeamColor( teamName, true ), teamName, color_glacier, " needs 10 more kills to win!" )
-        LambdaTeams:PlayConVarSound( "lambdaplayers_teamsystem_tdm_snd_10killsleft", "all" )
+    if LambdaTeams:GetCurrentGamemodeID() == 3 then
+        local pointLimit = GetGlobalInt( "LambdaTeamMatch_PointLimit", 0 )
+        if pointLimit > 0 then
+            local remain = ( pointLimit - newCount )
+            local dispName, dispClr = LambdaTeams:TDM_GetCompetitorDisplay( teamName )
+
+            if remain == 10 then
+                LambdaPlayers_ChatAdd( nil, color_white, "[LTS] ", dispClr, dispName, color_glacier, " needs 10 more kills to win!" )
+                LambdaTeams:PlayConVarSound( "lambdaplayers_teamsystem_tdm_snd_10killsleft", "all" )
+            elseif remain == 5 then
+                LambdaPlayers_ChatAdd( nil, color_white, "[LTS] ", dispClr, dispName, color_glacier, " needs 5 more kills to win!" )
+                LambdaTeams:PlayConVarSound( "lambdaplayers_teamsystem_tdm_snd_5killsleft", "all" )
+            end
+        end
     end
 
     SetGlobalInt( teamPoints, newCount )
@@ -2302,14 +2778,16 @@ function LambdaTeams:AreTeammates( ent, target )
     local targetTeam = LambdaTeams:GetPlayerTeam( target )
     if !targetTeam then return end
 
+    if LambdaTeams:GetCurrentGamemodeID() == 3 and LambdaTeams.TDM_IsFFA and LambdaTeams:TDM_IsFFA() then
+        return false
+    end
+
     if entTeam == targetTeam then return true end
 
     local allies = LambdaTeams.AlliedTeams[ entTeam ]
     if allies and allies[ targetTeam ] then
         return true
     end
-
-    return false
 end
 
 function LambdaTeams:MakeTeamsFriendly( teamA, teamB )

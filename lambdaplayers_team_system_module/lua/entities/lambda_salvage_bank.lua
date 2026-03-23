@@ -273,7 +273,7 @@ if ( CLIENT ) then
         local titlePos = self:LocalToWorld( Vector( 0, 0, self:OBBMaxs().z + 18 ) )
         local percentPos = self:LocalToWorld( Vector( 0, 0, self:OBBMaxs().z + 26 ) )
 
-        self:Draw3DText( "[BANK " .. string_upper( self:GetPointName() ) .. "] " .. self:GetCapturerName(), titlePos, drawAng, 0.35 )
+        self:Draw3DText( "[" .. string_upper( self:GetPointName() ) .. "] " .. self:GetCapturerName(), titlePos, drawAng, 0.35 )
         self:Draw3DText( floor( self:GetCapturePercent() ), percentPos, drawAng, 0.35 )
     end
 

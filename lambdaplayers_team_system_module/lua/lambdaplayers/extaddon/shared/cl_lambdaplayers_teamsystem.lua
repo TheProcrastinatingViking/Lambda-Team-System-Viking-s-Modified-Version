@@ -19,6 +19,8 @@ if ( CLIENT ) then
     local vec_white = Vector( 1, 1, 1 )
     local CreateFont = surface.CreateFont
     local table_Add = table.Add
+	local tdmRevealEnts = {}
+	local color_tdmReveal = Color( 255, 80, 80 )
 	
 	local random = math.random
 	local table_Empty = table.Empty
@@ -163,6 +165,22 @@ if ( CLIENT ) then
 
         return 0
     end
+	
+	local function LTS_ClientGetTDMEntryInfo( ent )
+		local key = LambdaTeams:GetPlayerTeam( ent )
+		local name = key
+		local clr = ( key and LambdaTeams:GetTeamColor( key, true ) ) or color_white
+
+		if LambdaTeams:GetCurrentGamemodeID() == 3 and LambdaTeams.TDM_IsFFA and LambdaTeams:TDM_IsFFA() then
+			key = LambdaTeams:TDM_GetCompetitorKey( ent )
+
+			local dispName, dispClr = LambdaTeams:TDM_GetCompetitorDisplay( key )
+			name = dispName or name
+			clr = dispClr or clr
+		end
+
+		return key, name, clr
+	end
 
     local function LTS_DrawAssaultEdgeIcon( ply, eyePos, iconPos, size )
         local scrW, scrH = ScrW(), ScrH()
@@ -340,7 +358,20 @@ if ( CLIENT ) then
 		local isConfirm = net.ReadBool()
 		notification.AddLegacy( isConfirm and "CONFIRMED!" or "DENIED!", NOTIFY_GENERIC, 1.2 )
 	end )
+	
+	net.Receive( "lambda_teamsystem_tdm_reveal", function()
+		local entCount = net.ReadUInt( 8 )
+		local expireAt = net.ReadFloat()
 
+		for i = 1, entCount do
+			local ent = net.ReadEntity()
+			if IsValid( ent ) then
+				tdmRevealEnts[ ent ] = expireAt
+			end
+		end
+
+		notification.AddLegacy( "Enemy positions revealed!", NOTIFY_HINT, 2 )
+	end )
 
 	local function LTS_SendPlayerLambdaTeam( teamName )
 		RefreshClientConVars()
@@ -357,17 +388,6 @@ if ( CLIENT ) then
 		LTS_SendPlayerLambdaTeam( newVal )
 	end
 
-	hook.Add( "InitPostEntity", modulePrefix .. "InitialPlayerTeamSync", function()
-		timer.Simple( 0.5, function()
-			RefreshClientConVars()
-
-			local ply = LocalPlayer()
-			if IsValid( ply ) then
-				LTS_SendPlayerLambdaTeam( ( playerTeam and playerTeam:GetString() ) or "" )
-			end
-		end )
-	end )
-    
 	cvars.RemoveChangeCallback( "lambdaplayers_teamsystem_playerteam", modulePrefix .. "OnPlayerLambdaTeamChanged" )
     cvars.AddChangeCallback( "lambdaplayers_teamsystem_playerteam", OnPlayerLambdaTeamChanged, modulePrefix .. "OnPlayerLambdaTeamChanged" )
 
@@ -472,7 +492,9 @@ if ( CLIENT ) then
 		local PANEL = {}
 
 		local gamemodeID = LambdaTeams:GetCurrentGamemodeID()
-		if gamemodeID != 0 then
+		local zsActive = GetGlobalBool("LTS_ZS_Active", false)
+
+		if gamemodeID != 0 and not zsActive then
 			local timeRemain = GetGlobalInt( "LambdaTeamMatch_TimeRemaining", 0 )
 			if timeRemain != -1 then
 				local ft = string.FormattedTime( timeRemain )
@@ -528,42 +550,50 @@ if ( CLIENT ) then
 			if CurTime() >= nextScoreUpdateT then
 				table_Empty( gamemodeCompetitors )
 
-				for _, ply in ipairs( table_Add( GetLambdaPlayers(), player_GetAll() ) ) do
-					local plyTeam = LambdaTeams:GetPlayerTeam( ply )
-					if !plyTeam then continue end
+                for _, ent in ipairs( table_Add( GetLambdaPlayers(), player_GetAll() ) ) do
+                    local scoreKey, displayName, displayColor = LTS_ClientGetTDMEntryInfo( ent )
+                    if !scoreKey then continue end
 
-					local entry = gamemodeCompetitors[ plyTeam ]
-					if entry then
-						entry[ 3 ] = entry[ 3 ] + 1
-					else
-						gamemodeCompetitors[ plyTeam ] = {
-							LambdaTeams:GetTeamPoints( plyTeam ),
-							LambdaTeams:GetTeamColor( plyTeam, true ),
-							1
-						}
-					end
-				end
+                    local entry = gamemodeCompetitors[ scoreKey ]
+                    if entry then
+                        entry[ 3 ] = entry[ 3 ] + 1
+                    else
+                        gamemodeCompetitors[ scoreKey ] = {
+                            LambdaTeams:GetTeamPoints( scoreKey ),
+                            displayColor,
+                            1,
+                            displayName
+                        }
+                    end
+                end
 
 				local refreshTime = math.max( 0.05, ( hudScoreRefresh and hudScoreRefresh:GetFloat() ) or 0.25 )
 				nextScoreUpdateT = ( CurTime() + refreshTime )
 			end
 
 			local scoreIndex = 0
-			for teamName, teamData in pairs( gamemodeCompetitors ) do
-				SimpleTextOutlined(
-					teamName .. " (" .. ( teamData[ 3 ] or 0 ) .. "): " .. teamData[ 1 ],
-					"ChatFont",
-					drawWidth,
-					( drawHeight + ( 20 * scoreIndex ) ),
-					teamData[ 2 ],
-					TEXT_ALIGN_LEFT,
-					TEXT_ALIGN_TOP,
-					1,
-					color_black
-				)
+            for teamName, teamData in pairs( gamemodeCompetitors ) do
+                local drawName = teamData[ 4 ] or teamName
+                local drawCount = ""
 
-				scoreIndex = ( scoreIndex + 1 )
-			end
+                if !( LambdaTeams:GetCurrentGamemodeID() == 3 and LambdaTeams.TDM_IsFFA and LambdaTeams:TDM_IsFFA() ) then
+                    drawCount = " (" .. ( teamData[ 3 ] or 0 ) .. ")"
+                end
+
+                SimpleTextOutlined(
+                    drawName .. drawCount .. ": " .. teamData[ 1 ],
+                    "ChatFont",
+                    drawWidth,
+                    ( drawHeight + ( 20 * scoreIndex ) ),
+                    teamData[ 2 ],
+                    TEXT_ALIGN_LEFT,
+                    TEXT_ALIGN_TOP,
+                    1,
+                    color_black
+                )
+
+                scoreIndex = ( scoreIndex + 1 )
+            end
 		end
 
 		local plyTeam = ( playerTeam and playerTeam:GetString() ) or ""
@@ -821,6 +851,27 @@ if ( CLIENT ) then
     hook.Add( "HUDPaint", modulePrefix .. "OnHUDPaint", OnHUDPaint )
     hook.Add( "PreDrawHalos", modulePrefix .. "OnPreDrawHalos", OnPreDrawHalos )
     hook.Add( "LambdaGetDisplayColor", modulePrefix .. "LambdaGetDisplayColor", LambdaGetDisplayColor )
+	hook.Add( "PreDrawHalos", modulePrefix .. "TDMRevealHalos", function()
+		if GetGlobalInt( "LambdaTeamMatch_GameID", 0 ) != 3 then
+			table_Empty( tdmRevealEnts )
+			return
+		end
+
+		local now = CurTime()
+		local drawTbl = {}
+
+		for ent, expireAt in pairs( tdmRevealEnts ) do
+			if !IsValid( ent ) or expireAt <= now then
+				tdmRevealEnts[ ent ] = nil
+			else
+				drawTbl[ #drawTbl + 1 ] = ent
+			end
+		end
+
+		if #drawTbl > 0 then
+			AddHalo( drawTbl, color_tdmReveal, 2, 2, 1, true, true )
+		end
+	end )
 
     ---
     

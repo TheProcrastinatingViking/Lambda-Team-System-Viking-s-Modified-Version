@@ -1,5 +1,3 @@
-print("[LTS] AOS Exempt panel client file LOADED")
-
 hook.Add("AddToolMenuCategories", "LTS_AOS_CreateCategory", function()
     spawnmenu.AddToolCategory("Utilities", "Lambda Players", "Lambda Players")
 end)

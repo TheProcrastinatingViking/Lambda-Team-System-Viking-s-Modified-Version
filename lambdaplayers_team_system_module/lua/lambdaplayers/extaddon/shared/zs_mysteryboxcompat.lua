@@ -8,21 +8,24 @@ local function CreateCompatConVar(name, default, desc, min, max, settings)
     return CreateConVar(name, tostring(default), FCVAR_ARCHIVE, desc, min, max)
 end
 
-local cv_enabled = CreateCompatConVar( "lambdaplayers_mysterybox_enabled", 1, "If enabled, Lambda Players will be allowed to use the Mystery Box Entity (Sandbox/TTT) (2023 Update).", 0, 1, { name = "Enable Mystery Box Compat", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_box_radius = CreateCompatConVar( "lambdaplayers_mysterybox_box_radius", 90, "Distance for Lambdas to use nearby mystery boxes (putting it higher than 100 will make it look freaky).", 1, 500, { name = "Box Use Radius", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_reward_radius = CreateCompatConVar( "lambdaplayers_mysterybox_reward_radius", 100, "Distance for Lambdas to claim nearby mystery box rewards.", 1, 500, { name = "Reward Pickup Radius", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_scan_interval = CreateCompatConVar( "lambdaplayers_mysterybox_scan_interval", 0.33, "How often Lambda Players search for boxes and rewards (Lower values will cause slight performance decreases).", 0.05, 2.0, { name = "Search Interval", type = "Slider", decimals = 2, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_require_outofcombat = CreateCompatConVar( "lambdaplayers_mysterybox_require_outofcombat", 1, "If enabled, Lambda Players will only use mystery boxes while out of combat.", 0, 1, { name = "Use Mystery Box Out Of Combat", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
+if not SERVER then return end
 
-local cv_skip_owned = CreateCompatConVar( "lambdaplayers_mysterybox_skip_owned", 1, "If enabled, Lambda Players will not collect weapons from the Mystery Box that they already have.", 0, 1, { name = "Skip Current Weapon", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_guard_enabled = CreateCompatConVar( "lambdaplayers_mysterybox_guard_enabled", 0, "If enabled, some Lambda Players near mystery boxes may stay and guard the area around it.", 0, 1, { name = "Guard Nearby Boxes", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_guard_chance = CreateCompatConVar( "lambdaplayers_mysterybox_guard_chance", 30, "Chance that a Lambda Player will guard a mystery box.", 0, 100, { name = "Guard Chance", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_guard_radius = CreateCompatConVar( "lambdaplayers_mysterybox_guard_radius", 250, "How close a guarding Lambda should remain to the box.", 64, 1000, { name = "Guard Radius", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_guard_time_min = CreateCompatConVar( "lambdaplayers_mysterybox_guard_time_min", 8, "Minimum time a Lambda Player will guard a mystery box.", 1, 120, { name = "Guard Time Min", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_guard_time_max = CreateCompatConVar( "lambdaplayers_mysterybox_guard_time_max", 18, "Maximum time a Lambda Player will guard near mystery box.", 1, 120, { name = "Guard Time Max", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_uses_min = CreateCompatConVar( "lambdaplayers_mysterybox_uses_min", 1, "Minimum times Lambda Players can use mystery boxes.", 0, 20, { name = "Min Box Uses", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_uses_max = CreateCompatConVar( "lambdaplayers_mysterybox_uses_max", 3, "Maximum times Lambda Players can use mystery boxes.", 0, 20, { name = "Max Box Uses", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-local cv_debug = CreateCompatConVar( "lambdaplayers_mysterybox_debug", 0, "Print debugging information for the compatibility patches between Lambda Players & the Mystery Box Entity.", 0, 1, { name = "Debug Logging", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
+local cv_enabled              = GetConVar( "lambdaplayers_mysterybox_enabled" )
+local cv_box_radius           = GetConVar( "lambdaplayers_mysterybox_box_radius" )
+local cv_reward_radius        = GetConVar( "lambdaplayers_mysterybox_reward_radius" )
+local cv_scan_interval        = GetConVar( "lambdaplayers_mysterybox_scan_interval" )
+local cv_require_outofcombat  = GetConVar( "lambdaplayers_mysterybox_require_outofcombat" )
+local cv_skip_owned           = GetConVar( "lambdaplayers_mysterybox_skip_owned" )
+local cv_guard_enabled        = GetConVar( "lambdaplayers_mysterybox_guard_enabled" )
+local cv_guard_chance         = GetConVar( "lambdaplayers_mysterybox_guard_chance" )
+local cv_guard_radius         = GetConVar( "lambdaplayers_mysterybox_guard_radius" )
+local cv_guard_time_min       = GetConVar( "lambdaplayers_mysterybox_guard_time_min" )
+local cv_guard_time_max       = GetConVar( "lambdaplayers_mysterybox_guard_time_max" )
+local cv_uses_min             = GetConVar( "lambdaplayers_mysterybox_uses_min" )
+local cv_uses_max             = GetConVar( "lambdaplayers_mysterybox_uses_max" )
+local cv_debug                = GetConVar( "lambdaplayers_mysterybox_debug" )
+
+local MysteryBoxToLambda = LambdaTeams.LTS_ZS_HumanToLambdaWeapon or {}
 
 local MysteryBoxToLambda = {
     m9k_acr = "m9k_ar_acr",
@@ -328,7 +331,24 @@ local function PatchBoxReward()
 
             self:SetNWBool("CanTake", false)
 
-            activator:SwitchWeapon(lambdaClass, true, true)
+            if GetGlobalBool("LTS_ZS_Active", false) and LambdaTeams and LambdaTeams.LTS_ZS_State then
+				local zs = LambdaTeams.LTS_ZS_State
+				if zs.active and zs.phase == "round" and not zs.cvRestrictWeapons:GetBool() then
+					if ZS_SetLambdaSpawnWeapon then
+						ZS_SetLambdaSpawnWeapon(activator, lambdaClass, true)
+					else
+						activator.l_SpawnWeapon = lambdaClass
+						if activator.SetNW2String then
+							activator:SetNW2String("lambda_spawnweapon", lambdaClass)
+						end
+						activator:SwitchWeapon(lambdaClass, true, true)
+					end
+				else
+					activator:SwitchWeapon(lambdaClass, true, true)
+				end
+			else
+				activator:SwitchWeapon(lambdaClass, true, true)
+			end
 
             self:EmitSound("hoff/mysterybox/bo2/buy_00.wav")
             activator:EmitSound("hoff/mysterybox/bo2/accept_00.wav")
