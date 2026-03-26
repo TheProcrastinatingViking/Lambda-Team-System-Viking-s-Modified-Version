@@ -104,6 +104,12 @@ if ( SERVER ) then
 	local salvageRandomizeDropsMin = GetConVar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_min" )
 	local salvageRandomizeDropsMax = GetConVar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_max" )
 	local salvageDropCarryOnDeath = GetConVar( "lambdaplayers_teamsystem_salvagerun_dropcarryondeath" )
+	local salvagePackagesEnabled = GetConVar( "lambdaplayers_teamsystem_salvagerun_packages_enabled" )
+	local salvagePackagesMaxActive = GetConVar( "lambdaplayers_teamsystem_salvagerun_packages_maxactive" )
+	local salvagePackagesRespawn = GetConVar( "lambdaplayers_teamsystem_salvagerun_packages_respawn" )
+	local salvagePackagesHealth = GetConVar( "lambdaplayers_teamsystem_salvagerun_packages_health" )
+	local salvagePackagesYieldMin = GetConVar( "lambdaplayers_teamsystem_salvagerun_packages_yield_min" )
+	local salvagePackagesYieldMax = GetConVar( "lambdaplayers_teamsystem_salvagerun_packages_yield_max" )
 	local salvageCombinePatrols = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols" )
 	local salvageCombinePatrolInterval = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_interval" )
 	local salvageCombinePatrolMaxAlive = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_maxalive" )
@@ -119,7 +125,13 @@ if ( SERVER ) then
 	local salvageDrawWorldText = GetConVar( "lambdaplayers_teamsystem_salvagerun_worldtext" )
 	local salvageWorldTextDist = GetConVar( "lambdaplayers_teamsystem_salvagerun_worldtextdist" )
 	local salvageGeneratorEnabled = GetConVar( "lambdaplayers_teamsystem_salvagerun_generator_enabled" )
-	
+	local salvageCombineSmartSpawn = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_smartspawn" )
+	local salvageCombineStuckFix = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_stuckfix" )
+	local salvageCombineStuckTime = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_stucktime" )
+	local salvageCombineStuckMove = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_stuckmove" )
+	local salvageCombineSpawnMin = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_spawnmin" )
+	local salvageCombineSpawnMax = GetConVar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_spawnmax" )
+
 	local function LTS_SalvageGeneratorEnabled()
 		return ( salvageGeneratorEnabled and salvageGeneratorEnabled:GetBool() ) or false
 	end
@@ -2152,6 +2164,10 @@ if ( SERVER ) then
 	function LambdaTeams:SpawnGeneratorSalvage( pos, amount )
 		SpawnSalvageBurst( pos, "__generator__", -1, amount, true )
 	end
+	
+	function LambdaTeams:SpawnPackageSalvage( pos, amount )
+		SpawnSalvageBurst( pos, "__package__", -1, amount, true )
+	end
 
 	local function CreateSalvagePickup( victim )
 		if CLIENT then return end
@@ -2184,23 +2200,8 @@ if ( SERVER ) then
 		local out = {}
 		table.Add( out, ents.FindByClass( "lambda_salvage_bank" ) )
 		table.Add( out, ents.FindByClass( "lambda_salvage_generator" ) )
+		table.Add( out, ents.FindByClass( "lambda_salvage_package" ) )
 		return out
-	end
-
-	local function LTS_SR_CleanupPatrols()
-		local state = LambdaTeams.SR_CombineState
-		local alive = 0
-
-		for i = #state.active, 1, -1 do
-			local npc = state.active[ i ]
-			if !IsValid( npc ) then
-				table.remove( state.active, i )
-			else
-				alive = alive + 1
-			end
-		end
-
-		return alive
 	end
 
 	local function LTS_SR_HumanNearObjective()
@@ -2225,15 +2226,238 @@ if ( SERVER ) then
 		return false
 	end
 
-	local function LTS_SR_FindSpawnPos( anchor )
-		local base = anchor:GetPos()
+	LambdaTeams.SR_PackageState = LambdaTeams.SR_PackageState or {
+    nextSpawnAt = 0,
+    spawnPoints = nil
+}
 
-		for _ = 1, 18 do
+	local function LTS_SR_PackagesEnabled()
+		return ( salvagePackagesEnabled and salvagePackagesEnabled:GetBool() ) or false
+	end
+
+	local function LTS_SR_ClearPackages()
+		for _, pkg in ipairs( ents.FindByClass( "lambda_salvage_package" ) ) do
+			if IsValid( pkg ) then
+				pkg:Remove()
+			end
+		end
+	end
+
+	local function LTS_SR_IsGoodPackagePos( pos )
+		if !isvector( pos ) then return false end
+
+		local tr = util.TraceHull( {
+			start = pos + Vector( 0, 0, 8 ),
+			endpos = pos + Vector( 0, 0, 9 ),
+			mins = Vector( -16, -16, 0 ),
+			maxs = Vector( 16, 16, 48 ),
+			mask = MASK_PLAYERSOLID
+		} )
+		if tr.Hit then return false end
+
+		for _, ent in ipairs( ents.FindInSphere( pos, 180 ) ) do
+			if !IsValid( ent ) then continue end
+
+			local class = ent:GetClass()
+			if class == "lambda_salvage_package"
+			or class == "lambda_salvage_bank"
+			or class == "lambda_salvage_generator"
+			then
+				return false
+			end
+		end
+
+		return true
+	end
+
+	local function LTS_SR_AddPackageSpawnPoint( tbl, seen, pos )
+		if !isvector( pos ) then return end
+
+		local key = math.Round( pos.x ) .. ":" .. math.Round( pos.y ) .. ":" .. math.Round( pos.z )
+		if seen[ key ] then return end
+
+		seen[ key ] = true
+		tbl[ #tbl + 1 ] = pos
+	end
+
+	local function LTS_SR_BuildPackageSpawnPoints()
+		local points = {}
+		local seen = {}
+
+		if navmesh and navmesh.IsLoaded and navmesh.IsLoaded() then
+			local areas = navmesh.GetAllNavAreas()
+			if areas and #areas > 0 then
+				for _, area in RandomPairs( areas ) do
+					local center = area:GetCenter()
+
+					local tr = util.TraceLine( {
+						start = center + Vector( 0, 0, 64 ),
+						endpos = center - Vector( 0, 0, 256 ),
+						mask = MASK_SOLID_BRUSHONLY
+					} )
+
+					if tr.Hit and !tr.HitSky then
+						LTS_SR_AddPackageSpawnPoint( points, seen, tr.HitPos + Vector( 0, 0, 8 ) )
+					end
+
+					if #points >= 128 then break end
+				end
+			end
+		end
+
+		if #points == 0 then
+			for _, obj in ipairs( LTS_GetSalvageObjectives() ) do
+				if !IsValid( obj ) then continue end
+
+				for i = 1, 6 do
+					LTS_SR_AddPackageSpawnPoint( points, seen, LTS_SR_FindSpawnPos( obj ) )
+				end
+			end
+		end
+
+		return points
+	end
+
+	local function LTS_SR_SpawnPackageAt( pos )
+		if !LTS_SR_IsGoodPackagePos( pos ) then return nil end
+
+		local ent = ents.Create( "lambda_salvage_package" )
+		if !IsValid( ent ) then return nil end
+
+		ent:SetPos( pos )
+		ent:SetAngles( Angle( 0, math.random( 0, 360 ), 0 ) )
+		ent.PackageHealth = math.max( 1, ( salvagePackagesHealth and salvagePackagesHealth:GetInt() ) or 40 )
+		ent.LTS_AutoPackage = true
+
+		local minYield = math.max( 1, ( salvagePackagesYieldMin and salvagePackagesYieldMin:GetInt() ) or 1 )
+		local maxYield = math.max( minYield, ( salvagePackagesYieldMax and salvagePackagesYieldMax:GetInt() ) or 2 )
+		ent.PackageYield = math.random( minYield, maxYield )
+
+		ent:Spawn()
+		ent:Activate()
+
+		local phys = ent:GetPhysicsObject()
+		if IsValid( phys ) then
+			phys:Wake()
+			phys:EnableMotion( false )
+		end
+
+		return ent
+	end
+	
+	local function LTS_SR_CleanupPatrols()
+    local state = LambdaTeams.SR_CombineState
+    local alive = 0
+
+    for i = #state.active, 1, -1 do
+        local npc = state.active[ i ]
+        if !IsValid( npc ) then
+            table.remove( state.active, i )
+        else
+            alive = alive + 1
+            LTS_SR_TryUnstuckPatrol( npc )
+        end
+    end
+
+    return alive
+end
+
+	local function LTS_SR_GetPatrolHull( className )
+		if className == "npc_strider" then
+			return Vector( -80, -80, 0 ), Vector( 80, 80, 220 )
+		elseif className == "npc_combinegunship" then
+			return Vector( -96, -96, -64 ), Vector( 96, 96, 96 )
+		end
+
+		return Vector( -16, -16, 0 ), Vector( 16, 16, 72 )
+	end
+
+	local function LTS_SR_GetSpawnRange()
+		local minDist = math.max( 100, ( salvageCombineSpawnMin and salvageCombineSpawnMin:GetInt() ) or 350 )
+		local maxDist = math.max( minDist, ( salvageCombineSpawnMax and salvageCombineSpawnMax:GetInt() ) or 900 )
+		return minDist, maxDist
+	end
+
+	local function LTS_SR_IsPatrolSpawnClear( pos, className )
+		if !isvector( pos ) then return false end
+
+		local mins, maxs = LTS_SR_GetPatrolHull( className )
+
+		local tr = util.TraceHull( {
+			start = pos + Vector( 0, 0, 8 ),
+			endpos = pos + Vector( 0, 0, 8 ),
+			mins = mins,
+			maxs = maxs,
+			mask = MASK_NPCSOLID
+		} )
+		if tr.Hit then return false end
+
+		local ground = util.TraceLine( {
+			start = pos + Vector( 0, 0, 24 ),
+			endpos = pos - Vector( 0, 0, 256 ),
+			mask = MASK_SOLID_BRUSHONLY
+		} )
+		if !ground.Hit or ground.HitSky then return false end
+
+		return true
+	end
+
+	local function LTS_SR_FindNavSpawnPos( anchor, className )
+		if !navmesh or !navmesh.IsLoaded or !navmesh.IsLoaded() then return nil end
+		if !IsValid( anchor ) then return nil end
+
+		local anchorPos = anchor:GetPos()
+		local minDist, maxDist = LTS_SR_GetSpawnRange()
+		local nearArea = navmesh.GetNearestNavArea( anchorPos, false, maxDist + 400, false, true )
+		if !IsValid( nearArea ) then return nil end
+
+		local areas = { nearArea }
+		local adjacent = nearArea.GetAdjacentAreas and nearArea:GetAdjacentAreas() or {}
+
+		for _, area in ipairs( adjacent ) do
+			if IsValid( area ) then
+				areas[ #areas + 1 ] = area
+			end
+			if #areas >= 24 then break end
+		end
+
+		for _, area in RandomPairs( areas ) do
+			if !IsValid( area ) then continue end
+
+			local pos = area:GetCenter()
+			local dist = anchorPos:Distance( pos )
+			if dist < minDist or dist > maxDist then continue end
+
+			local tr = util.TraceLine( {
+				start = pos + Vector( 0, 0, 64 ),
+				endpos = pos - Vector( 0, 0, 256 ),
+				mask = MASK_SOLID_BRUSHONLY
+			} )
+			if !tr.Hit or tr.HitSky then continue end
+
+			local groundPos = tr.HitPos + Vector( 0, 0, 8 )
+			if LTS_SR_IsPatrolSpawnClear( groundPos, className ) then
+				return groundPos
+			end
+		end
+
+		return nil
+	end
+
+	local function LTS_SR_FindFallbackSpawnPos( anchor, className )
+		if !IsValid( anchor ) then return nil end
+
+		local base = anchor:GetPos()
+		local minDist, maxDist = LTS_SR_GetSpawnRange()
+
+		for _ = 1, 28 do
 			local dir = VectorRand()
 			dir.z = 0
+
+			if dir:LengthSqr() <= 0.001 then continue end
 			dir:Normalize()
 
-			local dist = math.random( 350, 900 )
+			local dist = math.random( minDist, maxDist )
 			local startPos = base + ( dir * dist ) + Vector( 0, 0, 200 )
 
 			local tr = util.TraceLine( {
@@ -2241,16 +2465,34 @@ if ( SERVER ) then
 				endpos = startPos - Vector( 0, 0, 1200 ),
 				mask = MASK_SOLID_BRUSHONLY
 			} )
+			if !tr.Hit or tr.HitSky then continue end
 
-			if tr.Hit and !tr.HitSky then
-				return tr.HitPos + Vector( 0, 0, 8 )
+			local spawnPos = tr.HitPos + Vector( 0, 0, 8 )
+			if LTS_SR_IsPatrolSpawnClear( spawnPos, className ) then
+				return spawnPos
 			end
 		end
 
-		return base + Vector( 0, 0, 8 )
+		return nil
+	end
+
+	local function LTS_SR_FindSpawnPos( anchor, className )
+		className = className or "npc_combine_s"
+
+		if salvageCombineSmartSpawn and salvageCombineSmartSpawn:GetBool() then
+			local navPos = LTS_SR_FindNavSpawnPos( anchor, className )
+			if navPos then return navPos end
+		end
+
+		local fallback = LTS_SR_FindFallbackSpawnPos( anchor, className )
+		if fallback then return fallback end
+
+		return anchor:GetPos() + Vector( 0, 0, 8 )
 	end
 
 	local function LTS_SR_SpawnPatrolNPC( className, pos )
+		if !LTS_SR_IsPatrolSpawnClear( pos, className ) then return nil end
+
 		local npc = ents.Create( className )
 		if !IsValid( npc ) then return nil end
 
@@ -2262,11 +2504,105 @@ if ( SERVER ) then
 		end
 
 		npc.LTS_SRPatrol = true
+		npc.LTS_SRLastPos = pos
+		npc.LTS_SRLastMoveAt = CurTime()
+
 		npc:Spawn()
 		npc:Activate()
 
 		LambdaTeams.SR_CombineState.active[ #LambdaTeams.SR_CombineState.active + 1 ] = npc
 		return npc
+	end
+
+	function LTS_SR_TryUnstuckPatrol( npc )
+    if !IsValid( npc ) or !npc.LTS_SRPatrol then return false end
+    if !salvageCombineStuckFix or !salvageCombineStuckFix:GetBool() then return false end
+    if npc:GetClass() == "npc_combinegunship" then return false end
+
+    local curPos = npc:GetPos()
+    local lastPos = npc.LTS_SRLastPos or curPos
+    local moveThreshold = math.max( 1, ( salvageCombineStuckMove and salvageCombineStuckMove:GetFloat() ) or 40 )
+    local stuckTime = math.max( 0.5, ( salvageCombineStuckTime and salvageCombineStuckTime:GetFloat() ) or 3.0 )
+
+    if curPos:DistToSqr( lastPos ) >= ( moveThreshold * moveThreshold ) then
+        npc.LTS_SRLastPos = curPos
+        npc.LTS_SRLastMoveAt = CurTime()
+        return false
+    end
+
+    if CurTime() < ( ( npc.LTS_SRLastMoveAt or CurTime() ) + stuckTime ) then
+        return false
+    end
+
+    local objs = LTS_GetSalvageObjectives()
+    local anchor = table.Random( objs )
+    if !IsValid( anchor ) then return false end
+
+    local newPos = LTS_SR_FindSpawnPos( anchor, npc:GetClass() )
+    if !newPos or !LTS_SR_IsPatrolSpawnClear( newPos, npc:GetClass() ) then return false end
+
+    npc:SetPos( newPos )
+    npc:SetGroundEntity( NULL )
+    npc.LTS_SRLastPos = newPos
+    npc.LTS_SRLastMoveAt = CurTime()
+
+    if npc.ClearSchedule then npc:ClearSchedule() end
+    if npc.SetSchedule then npc:SetSchedule( SCHED_IDLE_STAND ) end
+
+    return true
+end
+
+	function LambdaTeams:SalvageRun_PackageTick()
+		if GetGlobalInt( "LambdaTeamMatch_GameID", 0 ) != 7 or !LTS_SR_PackagesEnabled() then
+			LTS_SR_ClearPackages()
+			self.SR_PackageState = {
+				nextSpawnAt = 0,
+				spawnPoints = nil
+			}
+			return
+		end
+
+		local state = self.SR_PackageState
+		if !state then
+			state = {
+				nextSpawnAt = 0,
+				spawnPoints = nil
+			}
+			self.SR_PackageState = state
+		end
+
+		state.spawnPoints = state.spawnPoints or LTS_SR_BuildPackageSpawnPoints()
+		if !state.spawnPoints or #state.spawnPoints == 0 then return end
+
+		local maxActive = math.max( 0, ( salvagePackagesMaxActive and salvagePackagesMaxActive:GetInt() ) or 0 )
+		if maxActive <= 0 then return end
+
+		local active = #ents.FindByClass( "lambda_salvage_package" )
+		if active >= maxActive then return end
+		if CurTime() < ( state.nextSpawnAt or 0 ) then return end
+
+		local toSpawn = math.min( maxActive - active, active == 0 and maxActive or 1 )
+		local pool = table.Copy( state.spawnPoints )
+
+		for i = 1, toSpawn do
+			local spawned = false
+
+			while #pool > 0 do
+				local idx = math.random( #pool )
+				local pos = pool[ idx ]
+				table.remove( pool, idx )
+
+				local pkg = LTS_SR_SpawnPackageAt( pos )
+				if IsValid( pkg ) then
+					spawned = true
+					break
+				end
+			end
+
+			if !spawned then break end
+		end
+
+		state.nextSpawnAt = CurTime() + math.max( 1.0, ( salvagePackagesRespawn and salvagePackagesRespawn:GetFloat() ) or 20.0 )
 	end
 
 	function LambdaTeams:SalvageRun_CombineTick()
@@ -2285,21 +2621,32 @@ if ( SERVER ) then
 		local maxAlive = math.max( 1, salvageCombinePatrolMaxAlive:GetInt() )
 		local interval = math.max( 3, salvageCombinePatrolInterval:GetFloat() )
 		local anchor = table.Random( objs )
-		local spawnPos = LTS_SR_FindSpawnPos( anchor )
+
+		local spawnClass = "npc_combine_s"
 
 		if CurTime() < ( state.escalateUntil or 0 ) then
 			if aliveCount < ( maxAlive + 2 ) then
-				local heavyClass = ( math.random( 1, 2 ) == 1 and "npc_strider" or "npc_combinegunship" )
-				if heavyClass == "npc_combinegunship" then
-					spawnPos = spawnPos + Vector( 0, 0, 220 )
-				end
-
-				LTS_SR_SpawnPatrolNPC( heavyClass, spawnPos )
+				spawnClass = ( math.random( 1, 2 ) == 1 and "npc_strider" or "npc_combinegunship" )
+			else
+				state.nextSpawnAt = CurTime() + interval
+				return
 			end
 		else
-			if aliveCount < maxAlive then
-				LTS_SR_SpawnPatrolNPC( "npc_combine_s", spawnPos )
+			if aliveCount >= maxAlive then
+				state.nextSpawnAt = CurTime() + interval
+				return
 			end
+		end
+
+		local spawnPos = LTS_SR_FindSpawnPos( anchor, spawnClass )
+
+		if spawnClass == "npc_combinegunship" then
+			spawnPos = spawnPos + Vector( 0, 0, 220 )
+		end
+
+		if !LTS_SR_SpawnPatrolNPC( spawnClass, spawnPos ) then
+			state.nextSpawnAt = CurTime() + math.min( interval, 6 )
+			return
 		end
 
 		state.nextSpawnAt = CurTime() + interval

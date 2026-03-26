@@ -1,7 +1,6 @@
 hook.Add("AddToolMenuCategories", "LTS_AOS_CreateCategory", function()
-    spawnmenu.AddToolCategory("Utilities", "Lambda Players", "Lambda Players")
+    spawnmenu.AddToolCategory("Lambda Team System", "Lambda Team System", "Lambda Team System")
 end)
-
 
 net.Receive("LTS_SendAOSExemptData", function()
     local exempt = net.ReadTable()
@@ -146,8 +145,8 @@ vgui.Register("LTS_AOSPanel", PANEL, "DPanel")
 
 hook.Add("PopulateToolMenu", "LTS_AddAOSPanel", function()
     spawnmenu.AddToolMenuOption(
-        "Utilities",
-        "Lambda Players",
+        "Lambda Team System",
+        "Lambda Team System",
         "TeamAOSExempt",
         "AOS Exemptions",
         "",

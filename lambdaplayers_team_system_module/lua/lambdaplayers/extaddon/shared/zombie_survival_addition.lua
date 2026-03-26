@@ -10,17 +10,36 @@ local COLOR_LTS = Color(140, 220, 255)
 local DEFAULT_ZOMBIES = { "npc_zombie", "npc_fastzombie", "npc_zombine", "npc_poisonzombie" }
 local DEFAULT_SPECIAL = { "npc_antlion", "npc_antlion", "npc_antlion", "npc_antlionguard" }
 local NET_ZS_SETNPCLISTS = "LTS_ZS_SetNPCLists"
+-- ADD THESE WITH THE OTHER SOUND CVAR CONSTANTS
+local CV_ZS_SND_POWERUP_INSTAKILL  = "lambdaplayers_teamsystem_zs_snd_powerup_instakill"
+local CV_ZS_SND_POWERUP_MAXAMMO    = "lambdaplayers_teamsystem_zs_snd_powerup_maxammo"
+local CV_ZS_SND_POWERUP_MOREPOINTS = "lambdaplayers_teamsystem_zs_snd_powerup_morepoints"
+local CV_ZS_SND_POWERUP_NUKE       = "lambdaplayers_teamsystem_zs_snd_powerup_nuke"
+
+-- ADD THESE WITH THE OTHER SOUND CONVARS
+CreateLambdaConvar( CV_ZS_SND_POWERUP_INSTAKILL, "lambdaplayers/zs/instakill.mp3", true, true, false, "Sound played when the Insta-Kill powerup is picked up.", 0, 1, { name = "Sound - Powerup Insta-Kill", type = "Text", category = LTS_CAT_ZS_POWERUPS } )
+CreateLambdaConvar( CV_ZS_SND_POWERUP_MAXAMMO, "lambdaplayers/zs/maxammo.mp3", true, true, false, "Sound played when the Ammo powerup is picked up.", 0, 1, { name = "Sound - Powerup Max Ammo", type = "Text", category = LTS_CAT_ZS_POWERUPS } )
+CreateLambdaConvar( CV_ZS_SND_POWERUP_MOREPOINTS, "lambdaplayers/zs/morepoints.mp3", true, true, false, "Sound played when the Double Points powerup is picked up.", 0, 1, { name = "Sound - Powerup More Points", type = "Text", category = LTS_CAT_ZS_POWERUPS } )
+CreateLambdaConvar( CV_ZS_SND_POWERUP_NUKE, "lambdaplayers/zs/nuke.mp3", true, true, false, "Sound played when the Nuke powerup is picked up.", 0, 1, { name = "Sound - Powerup Nuke", type = "Text", category = LTS_CAT_ZS_POWERUPS } )
 local CV_ZS_SND_MATCHSTART = "lambdaplayers_teamsystem_zs_snd_matchstart"
 local CV_ZS_SND_MATCHEND   = "lambdaplayers_teamsystem_zs_snd_matchend"
 local CV_ZS_SND_ROUNDSTART = "lambdaplayers_teamsystem_zs_snd_roundstart"
 local CV_ZS_SND_ROUNDEND   = "lambdaplayers_teamsystem_zs_snd_roundend"
 local CV_ZS_SND_SPECIALROUNDSTART = "lambdaplayers_teamsystem_zs_snd_specialroundstart"
 
-CreateLambdaConvar( CV_ZS_SND_MATCHSTART, "lambdaplayers/zs/roundstart.mp3", true, true, false, "Sound played when Zombie Survival starts.", 0, 1, { name = "Sound - Match Start", type = "Text", category = "Team System - Zombie Survival" } )
-CreateLambdaConvar( CV_ZS_SND_MATCHEND, "lambdaplayers/zs/matchend.mp3", true, true, false, "Sound played when Zombie Survival ends/stops.", 0, 1, { name = "Sound - Match End", type = "Text", category = "Team System - Zombie Survival" } )
-CreateLambdaConvar( CV_ZS_SND_ROUNDSTART, "lambdaplayers/zs/roundstart.mp3", true, true, false, "Sound played when a round starts.", 0, 1, { name = "Sound - Round Start", type = "Text", category = "Team System - Zombie Survival" } )
-CreateLambdaConvar( CV_ZS_SND_ROUNDEND, "lambdaplayers/zs/roundend.mp3", true, true, false, "Sound played when a round ends.", 0, 1, { name = "Sound - Round End", type = "Text", category = "Team System - Zombie Survival" } )
-CreateLambdaConvar( CV_ZS_SND_SPECIALROUNDSTART, "lambdaplayers/zs/specialroundstart.mp3", true, true, false, "Sound played when a special round starts.", 0, 1, { name = "Sound - Special Round Start", type = "Text", category = "Team System - Zombie Survival" } )
+LTS_CAT_GAMEMODES         = "Lambda Team System - Gamemodes"
+LTS_CAT_ZS              = "Lambda Team System - Zombie Survival"
+LTS_CAT_ZS_ADDITIONAL   = "Lambda Team System - Zombie Survival - Additional"
+LTS_CAT_ZS_POWERUPS     = "Lambda Team System - Zombie Survival - Powerup Settings"
+LTS_CAT_ZS_PVP          = "Lambda Team System - Zombie Survival - PVP Settings"
+LTS_CAT_ZS_MYSTERYBOX   = "Lambda Team System - Zombie Survival - Mystery Box Addon"
+LTS_CAT_ZS_GUNS = "Lambda Team System - Zombie Survival - Weapons"
+
+CreateLambdaConvar( CV_ZS_SND_MATCHSTART, "lambdaplayers/zs/roundstart.mp3", true, true, false, "Sound played when Zombie Survival starts.", 0, 1, { name = "Sound - Match Start", type = "Text", category = LTS_CAT_ZS } )
+CreateLambdaConvar( CV_ZS_SND_MATCHEND, "lambdaplayers/zs/matchend.mp3", true, true, false, "Sound played when Zombie Survival ends/stops.", 0, 1, { name = "Sound - Match End", type = "Text", category = LTS_CAT_ZS } )
+CreateLambdaConvar( CV_ZS_SND_ROUNDSTART, "lambdaplayers/zs/roundstart.mp3", true, true, false, "Sound played when a round starts.", 0, 1, { name = "Sound - Round Start", type = "Text", category = LTS_CAT_ZS } )
+CreateLambdaConvar( CV_ZS_SND_ROUNDEND, "lambdaplayers/zs/roundend.mp3", true, true, false, "Sound played when a round ends.", 0, 1, { name = "Sound - Round End", type = "Text", category = LTS_CAT_ZS } )
+CreateLambdaConvar( CV_ZS_SND_SPECIALROUNDSTART, "lambdaplayers/zs/specialroundstart.mp3", true, true, false, "Sound played when a special round starts.", 0, 1, { name = "Sound - Special Round Start", type = "Text", category = LTS_CAT_ZS } )
 
 local function ChatAll(...)
     if LambdaPlayers_ChatAdd then
@@ -243,18 +262,35 @@ end
 local POWERUP_NUKE         = "nuke"
 local POWERUP_DOUBLEPOINTS = "doublepoints"
 local POWERUP_AMMO         = "ammo"
+local POWERUP_INSTAKILL    = "instakill"
 
 local POWERUP_MODELS = {
     [POWERUP_NUKE]         = "models/Items/combine_rifle_ammo01.mdl",
     [POWERUP_DOUBLEPOINTS] = "models/Items/battery.mdl",
-    [POWERUP_AMMO]         = "models/Items/BoxMRounds.mdl"
+    [POWERUP_AMMO]         = "models/Items/BoxMRounds.mdl",
+    [POWERUP_INSTAKILL]    = "models/Items/combine_rifle_cartridge01.mdl"
 }
 
 local POWERUP_COLORS = {
     [POWERUP_NUKE]         = Color(255, 180, 80),
     [POWERUP_DOUBLEPOINTS] = Color(80, 170, 255),
-    [POWERUP_AMMO]         = Color(120, 255, 120)
+    [POWERUP_AMMO]         = Color(120, 255, 120),
+    [POWERUP_INSTAKILL]    = Color(255, 75, 75)
 }
+
+local POWERUP_SOUND_CVARS = {
+    [POWERUP_NUKE]         = CV_ZS_SND_POWERUP_NUKE,
+    [POWERUP_DOUBLEPOINTS] = CV_ZS_SND_POWERUP_MOREPOINTS,
+    [POWERUP_AMMO]         = CV_ZS_SND_POWERUP_MAXAMMO,
+    [POWERUP_INSTAKILL]    = CV_ZS_SND_POWERUP_INSTAKILL
+}
+
+local function ZS_PlayPowerupPickupSound(kind)
+    local sndCvar = POWERUP_SOUND_CVARS[kind]
+    if sndCvar then
+        ZS_PlaySound(sndCvar)
+    end
+end
 
 local IGNORE_LOADOUT_WEAPONS = {
     ["gmod_tool"] = true,
@@ -470,8 +506,11 @@ local function ZS_GiveStarterWeaponToLambda(state, lb)
 
     local starter = SafeWeaponClass(state.cvStarterWeaponLambda:GetString())
     if starter == "" then return end
+    if lb.WeaponDataExists and not lb:WeaponDataExists(starter) then return end
 
-    ZS_SetLambdaSpawnWeapon(lb, starter, true)
+    if lb.SwitchWeapon then
+        lb:SwitchWeapon(starter, true, true)
+    end
 end
 
 local function ZS_SetParticipantState(ent, enabled)
@@ -584,6 +623,7 @@ local function ZS_RestorePlayerLoadout(state, ply)
             ply:StripWeapons()
             ply:RemoveAllAmmo()
             ply:Give(forced)
+
             timer.Simple(0, function()
                 if IsValid(ply) and ply:Alive() and IsValid(ply:GetWeapon(forced)) then
                     ply:SelectWeapon(forced)
@@ -594,15 +634,14 @@ local function ZS_RestorePlayerLoadout(state, ply)
     end
 
     local limit = math.max(1, state.cvWeaponLimit:GetInt())
+    local doRoundOneReset = (state.round == 1 and state.cvResetOnRoundOne:GetBool())
     local snapshot = state.cachedLoadouts[ply]
 
-    if not snapshot or not snapshot.weapons or #snapshot.weapons == 0 then
-        if state.round == 1 and state.cvResetOnRoundOne:GetBool() then
-            ply:StripWeapons()
-            ply:RemoveAllAmmo()
-        end
-
+    if doRoundOneReset then
+        ply:StripWeapons()
+        ply:RemoveAllAmmo()
         ZS_GiveStarterWeapon(state, ply)
+
         timer.Simple(0, function()
             if IsValid(ply) and ply:Alive() then
                 ZS_EnforceWeaponLimit(state, ply)
@@ -612,27 +651,39 @@ local function ZS_RestorePlayerLoadout(state, ply)
         return
     end
 
-    ply:StripWeapons()
+    if not snapshot or not snapshot.weapons or #snapshot.weapons == 0 then
+        timer.Simple(0, function()
+            if IsValid(ply) and ply:Alive() then
+                ZS_EnforceWeaponLimit(state, ply)
+                ZS_CachePlayerLoadout(state, ply)
+            end
+        end)
+        return
+    end
 
-    for ammoType, _ in pairs(snapshot.ammo or {}) do
-        local cur = ply:GetAmmoCount(ammoType)
-        if cur > 0 then
-            ply:RemoveAmmo(cur, ammoType)
+    local owned = {}
+
+    for _, wep in ipairs(ply:GetWeapons()) do
+        if ZS_ShouldTrackWeapon(wep) then
+            local class = SafeWeaponClass(wep:GetClass())
+            if class ~= "" then
+                owned[class] = true
+            end
         end
     end
 
-    local seen = {}
     local given = 0
-
     for _, class in ipairs(snapshot.weapons) do
         class = SafeWeaponClass(class)
-        if class == "" or seen[class] then continue end
+        if class == "" then continue end
 
-        seen[class] = true
         given = given + 1
         if given > limit then break end
 
-        ply:Give(class)
+        if not owned[class] then
+            ply:Give(class)
+            owned[class] = true
+        end
     end
 
     for ammoType, amount in pairs(snapshot.ammo or {}) do
@@ -643,15 +694,12 @@ local function ZS_RestorePlayerLoadout(state, ply)
     end
 
     local active = SafeWeaponClass(snapshot.active or "")
+
     timer.Simple(0, function()
         if not IsValid(ply) or not ply:Alive() then return end
 
         if active ~= "" and IsValid(ply:GetWeapon(active)) then
             ply:SelectWeapon(active)
-        end
-
-        if ZS_CountTrackedWeapons(ply) <= 0 then
-            ZS_GiveStarterWeapon(state, ply)
         end
 
         ZS_EnforceWeaponLimit(state, ply)
@@ -666,7 +714,9 @@ local function ZS_ClearPowerups(state)
 
     table.Empty(state.powerups)
     state.doublePointsUntil = 0
+    state.instaKillUntil = 0
     SetGlobalInt("LTS_ZS_DoublePointsRemaining", 0)
+    SetGlobalInt("LTS_ZS_InstaKillRemaining", 0)
 end
 
 local function ZS_GetLivingParticipants(state)
@@ -740,6 +790,9 @@ local function ZS_PickPowerupType(state)
     if state.cvPowerupAmmo:GetBool() then
         choices[#choices + 1] = POWERUP_AMMO
     end
+    if state.cvPowerupInstaKill:GetBool() then
+        choices[#choices + 1] = POWERUP_INSTAKILL
+    end
 
     if #choices == 0 then return nil end
     return choices[math.random(#choices)]
@@ -780,6 +833,8 @@ local function ZS_ActivatePowerup(state, ent, activator)
 
     local kind = ent.lts_zs_powerup
     if not kind or kind == "" then return end
+
+    ZS_PlayPowerupPickupSound(kind)
 
     if kind == POWERUP_NUKE then
         local killed = 0
@@ -824,6 +879,10 @@ local function ZS_ActivatePowerup(state, ent, activator)
         end
 
         ChatAll("Powerup grabbed: AMMO! Granted ", tostring(clips), " clip(s).")
+    elseif kind == POWERUP_INSTAKILL then
+        local dur = math.max(1, state.cvInstaKillDuration:GetInt())
+        state.instaKillUntil = math.max(state.instaKillUntil or 0, CurTime()) + dur
+        ChatAll("Powerup grabbed: INSTA-KILL for ", tostring(dur), " seconds!")
     end
 
     state.powerups[ent] = nil
@@ -930,35 +989,85 @@ local function RoundEnemyClasses(state, roundType)
     return DEFAULT_ZOMBIES
 end
 
-local function FindSpawnPosNearLiving(state)
-    local alive = {}
-    for _, tdata in pairs(state.teams) do
-        for _, ent in ipairs(tdata.members) do
-            if IsAliveParticipant(ent, state) then
-                alive[#alive + 1] = ent
+local function ZS_GetObserverPos(ent)
+    if not IsValid(ent) then return nil end
+    if ent.EyePos then return ent:EyePos() end
+    return ent:WorldSpaceCenter()
+end
+
+local function ZS_GetGroundedSpawnPos(pos)
+    local tr = util.TraceLine({
+        start = pos + Vector(0, 0, 32),
+        endpos = pos - Vector(0, 0, 256),
+        mask = MASK_NPCSOLID_BRUSHONLY
+    })
+
+    if not tr.Hit then return nil end
+    return tr.HitPos + Vector(0, 0, 8)
+end
+
+local function ZS_IsSpawnPosUsable(state, pos, living)
+    if not pos then return false end
+
+    pos = ZS_GetGroundedSpawnPos(pos)
+    if not pos then return false end
+
+    local hull = util.TraceHull({
+        start = pos,
+        endpos = pos,
+        mins = Vector(-16, -16, 0),
+        maxs = Vector(16, 16, 72),
+        mask = MASK_NPCSOLID
+    })
+    if hull.StartSolid or hull.Hit then return false end
+
+    local minDist = math.max(0, state.cvSpawnMinDist:GetInt())
+    local maxDist = math.max(minDist + 64, state.cvSpawnMaxDist:GetInt())
+    local minDistSqr = (minDist * minDist)
+    local maxDistSqr = (maxDist * maxDist)
+
+    local anyInRange = false
+
+    for _, ent in ipairs(living) do
+        if not IsValid(ent) then continue end
+
+        local distSqr = ent:GetPos():DistToSqr(pos)
+        if distSqr < minDistSqr then return false end
+        if distSqr <= maxDistSqr then
+            anyInRange = true
+        end
+
+        if state.cvSmartSpawnRejectVisible:GetBool() then
+            local eyePos = ZS_GetObserverPos(ent)
+            if eyePos then
+                local los = util.TraceLine({
+                    start = eyePos,
+                    endpos = pos + Vector(0, 0, 40),
+                    filter = ent,
+                    mask = MASK_SOLID_BRUSHONLY
+                })
+
+                if not los.Hit then
+                    return false
+                end
             end
         end
     end
-    if #alive == 0 then return nil end
 
-    local anchor = alive[math.random(#alive)]
-    local basePos = anchor:GetPos()
+    return anyInRange, pos
+end
 
+local function ZS_PickRandomSpawnCandidate(state, anchor)
     local minDist = state.cvSpawnMinDist:GetInt()
-    local maxDist = state.cvSpawnMaxDist:GetInt()
-    if maxDist < minDist + 64 then maxDist = minDist + 64 end
+    local maxDist = math.max(minDist + 64, state.cvSpawnMaxDist:GetInt())
 
-    if state.navAreas and #state.navAreas > 0 and navmesh.GetRandomPoint then
-        for _ = 1, 12 do
+    if state.navAreas and #state.navAreas > 0 then
+        for _ = 1, 3 do
             local area = state.navAreas[math.random(#state.navAreas)]
             if not IsValid(area) then continue end
 
             local p = area:GetRandomPoint()
-            if p:DistToSqr(basePos) < (minDist * minDist) then continue end
-            if p:DistToSqr(basePos) > (maxDist * maxDist) then continue end
-
-            p.z = p.z + 8
-            return p
+            if p then return p end
         end
     end
 
@@ -966,8 +1075,45 @@ local function FindSpawnPosNearLiving(state)
     dir.z = 0
     dir:Normalize()
 
-    local dist = math.random(minDist, maxDist)
-    local p = basePos + dir * dist
+    return anchor:GetPos() + (dir * math.random(minDist, maxDist))
+end
+
+local function FindSpawnPosNearLiving(state)
+    local living = ZS_GetLivingParticipants(state)
+    if #living == 0 then return nil end
+
+    local smartSpawns = state.cvSmartSpawns:GetBool()
+    local attempts = (smartSpawns and math.max(1, state.cvSmartSpawnAttempts:GetInt()) or 1)
+
+    for _ = 1, attempts do
+        local anchor = living[math.random(#living)]
+        if not IsValid(anchor) then continue end
+
+        local pos = ZS_PickRandomSpawnCandidate(state, anchor)
+        if not pos then continue end
+
+        if not smartSpawns then
+            pos.z = pos.z + 8
+            return pos
+        end
+
+        local ok, groundedPos = ZS_IsSpawnPosUsable(state, pos, living)
+        if ok then
+            return groundedPos
+        end
+    end
+
+    local fallbackAnchor = living[math.random(#living)]
+    if not IsValid(fallbackAnchor) then return nil end
+
+    local dir = VectorRand()
+    dir.z = 0
+    dir:Normalize()
+
+    local minDist = state.cvSpawnMinDist:GetInt()
+    local maxDist = math.max(minDist + 64, state.cvSpawnMaxDist:GetInt())
+
+    local p = fallbackAnchor:GetPos() + (dir * math.random(minDist, maxDist))
     p.z = p.z + 8
     return p
 end
@@ -989,6 +1135,8 @@ local function SpawnEnemy(state, className)
     npc.lts_zs_round = state.round
     npc.lts_zs_counted = false
     npc.lts_zs_ignorekillreward = false
+    npc.lts_zs_lastPos = pos
+    npc.lts_zs_stuckSince = CurTime()
 
     local hpMul = math.max(0.1, state.cvEnemyHealthMul:GetFloat())
     if hpMul ~= 1 then
@@ -1004,6 +1152,55 @@ local function SpawnEnemy(state, className)
     state.enemiesSpawnedTotal = state.enemiesSpawnedTotal + 1
 
     SetGlobalInt("LTS_ZS_EnemiesRemaining", state.enemiesRemaining)
+end
+
+local function ZS_ThinkStuckEnemies(state)
+    if not state.cvStuckTeleport:GetBool() then return end
+
+    local now = CurTime()
+    local interval = math.max(0.1, state.cvStuckCheckInterval:GetFloat())
+    if now < (state.nextEnemyUtilityThinkT or 0) then return end
+
+    state.nextEnemyUtilityThinkT = now + interval
+
+    local minMove = math.max(1, state.cvStuckMinMove:GetFloat())
+    local minMoveSqr = (minMove * minMove)
+    local stuckTime = math.max(0.5, state.cvStuckTime:GetFloat())
+
+    for _, npc in ipairs(state.spawnedEnemies) do
+        if not IsValid(npc) then continue end
+        if not npc.lts_zs_enemy then continue end
+        if npc.lts_zs_round ~= state.round then continue end
+
+        local pos = npc:GetPos()
+        local lastPos = npc.lts_zs_lastPos or pos
+        local movedSqr = pos:DistToSqr(lastPos)
+        local velSqr = (npc.GetVelocity and npc:GetVelocity():LengthSqr() or 0)
+
+        if movedSqr > minMoveSqr or velSqr > (32 * 32) then
+            npc.lts_zs_lastPos = pos
+            npc.lts_zs_stuckSince = now
+            continue
+        end
+
+        npc.lts_zs_stuckSince = npc.lts_zs_stuckSince or now
+        if (now - npc.lts_zs_stuckSince) < stuckTime then continue end
+
+        local newPos = FindSpawnPosNearLiving(state)
+        if newPos then
+            npc:SetPos(newPos)
+            npc:SetLocalVelocity(vector_origin)
+
+            if npc.ClearSchedule then
+                npc:ClearSchedule()
+            end
+
+            npc.lts_zs_lastPos = newPos
+            npc.lts_zs_stuckSince = now + 1.0
+        else
+            npc.lts_zs_stuckSince = now
+        end
+    end
 end
 
 local function StartRound(state, roundNum, isRestart)
@@ -1221,6 +1418,8 @@ local function BuildState()
 	state.cachedLambdaWeapons = {}
     state.powerups = {}
     state.teamKillGlobals = {}
+	state.instaKillUntil = 0
+	state.nextEnemyUtilityThinkT = 0
     state.doublePointsUntil = 0
     state.curMaxAliveEnemies = 0
     state.curSpawnInterval = 0.35
@@ -1232,61 +1431,68 @@ local function BuildState()
 -- YOU GOTTA BUY ME A PEPSI FOR THAT 
 
 -- THE MAIN SETTINGS
-state.cvIncludeNoTeams = CreateLambdaConvar("lambdaplayers_teamsystem_zs_includenoteams", 0, true, false, false, "If enabled, players/lambdas with no assigned Lambda Team are included as 'Neutral'.", 0, 1, { name = "Place Neutrals On A Team", type = "Bool", category = "Team System - Zombie Survival" })
-state.cvTotalRounds = CreateLambdaConvar("lambdaplayers_teamsystem_zs_totalrounds", 10, true, false, false, "How many rounds players must survive to finish the match.", 1, 255, { name = "Total Rounds", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvEndlessRounds = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless", 0, true, false, false, "If enabled, Zombie Survival never ends by round count.", 0, 1, { name = "Endless Rounds", type = "Bool", category = "Team System - Zombie Survival" })
-state.cvIntermissionTime = CreateLambdaConvar("lambdaplayers_teamsystem_zs_intermission", 8, true, false, false, "Seconds between rounds.", 0, 60, { name = "Intermission Timer", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvBaseEnemiesPerPlayer = CreateLambdaConvar("lambdaplayers_teamsystem_zs_baseenemiesperplayer", 6, true, false, false, "Base enemies per participant per round.", 1, 50, { name = "Base Enemies Per Player", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvEnemiesAddPerRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_addenemiesperround", 2, true, false, false, "Additional enemies added each round.", 0, 100, { name = "Add Enemies Per Round", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvRoundEnemyCap = CreateLambdaConvar("lambdaplayers_teamsystem_zs_roundenemycap", 200, true, false, false, "The hard cap for how many enemies can spawn in a round.", 1, 5000, { name = "Enemy Maximum Per Round", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvMaxAliveEnemies = CreateLambdaConvar("lambdaplayers_teamsystem_zs_maxaliveenemies", 25, true, false, false, "Max alive enemies at once. Set 0 for unlimited.", 0, 300, { name = "Max Alive Enemies", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvMaxAliveAddPerRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_maxalive_addperround", 1, true, false, false, "Adds this many extra alive enemies each round to increase endless pressure.", 0, 50, { name = "Max Alive Added Per Round", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvSpawnInterval = CreateLambdaConvar("lambdaplayers_teamsystem_zs_spawninterval", 0.35, true, false, false, "Enemy spawn interval in seconds.", 0.05, 5.0, { name = "Spawn Interval", type = "Slider", decimals = 2, category = "Team System - Zombie Survival" })
-state.cvSpawnIntervalDecay = CreateLambdaConvar("lambdaplayers_teamsystem_zs_spawninterval_decay", 0.005, true, false, false, "How much the spawn interval shrinks each round.", 0.0, 0.25, { name = "Spawn Interval Decay", type = "Slider", decimals = 3, category = "Team System - Zombie Survival" })
-state.cvSpawnMinDist = CreateLambdaConvar("lambdaplayers_teamsystem_zs_spawnmindist", 900, true, false, false, "Minimum distance from a player to spawn an enemy.", 0, 6000, { name = "Spawn Min Distance", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvSpawnMaxDist = CreateLambdaConvar("lambdaplayers_teamsystem_zs_spawnmaxdist", 2600, true, false, false, "Maximum distance from a player to spawn an enemy.", 256, 12000, { name = "Spawn Max Distance", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvEnemyHealthMul = CreateLambdaConvar("lambdaplayers_teamsystem_zs_enemyhealthmul", 1.0, true, false, false, "Enemy HP multiplier.", 0.1, 10.0, { name = "Enemy HP Multiplier", type = "Slider", decimals = 1, category = "Team System - Zombie Survival" })
-state.cvCleanupEnemiesBetweenRounds = CreateLambdaConvar("lambdaplayers_teamsystem_zs_cleanup_betweenrounds", 1, true, false, false, "If enabled, removes remaining enemies between rounds.", 0, 1, { name = "Cleanup Enemies Between Rounds", type = "Bool", category = "Team System - Zombie Survival" })
-state.cvStartingPoints = CreateLambdaConvar("lambdaplayers_teamsystem_zs_startingpoints", 0, true, false, false, "Points each participant starts with.", 0, 10000, { name = "Starting Points", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvKillPoints = CreateLambdaConvar("lambdaplayers_teamsystem_zs_killpoints", 10, true, false, false, "Personal points awarded per zombie kill.", 0, 500, { name = "Kill Points", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
-state.cvUseRoundTimer = CreateLambdaConvar("lambdaplayers_teamsystem_zs_use_roundtimer", 0, true, false, false, "If enabled, the round has a timer.", 0, 1, { name = "Use Round Timer", type = "Bool", category = "Team System - Zombie Survival" })
-state.cvRoundTime = CreateLambdaConvar("lambdaplayers_teamsystem_zs_roundtime", 180, true, false, false, "Total time in seconds for each round.", 10, 3600, { name = "Round Time", type = "Slider", decimals = 0, category = "Team System - Zombie Survival" })
+state.cvIncludeNoTeams = CreateLambdaConvar("lambdaplayers_teamsystem_zs_includenoteams", 0, true, false, false, "If enabled, players/lambdas with no assigned Lambda Team are included as 'Neutral'.", 0, 1, { name = "Place Neutrals On A Team", type = "Bool", category = LTS_CAT_ZS })
+state.cvTotalRounds = CreateLambdaConvar("lambdaplayers_teamsystem_zs_totalrounds", 10, true, false, false, "How many rounds players must survive to finish the match.", 1, 255, { name = "Total Rounds", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvEndlessRounds = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless", 0, true, false, false, "If enabled, Zombie Survival never ends by round count.", 0, 1, { name = "Endless Rounds", type = "Bool", category = LTS_CAT_ZS })
+state.cvIntermissionTime = CreateLambdaConvar("lambdaplayers_teamsystem_zs_intermission", 8, true, false, false, "Seconds between rounds.", 0, 60, { name = "Intermission Timer", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvBaseEnemiesPerPlayer = CreateLambdaConvar("lambdaplayers_teamsystem_zs_baseenemiesperplayer", 6, true, false, false, "Base enemies per participant per round.", 1, 50, { name = "Base Enemies Per Player", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvEnemiesAddPerRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_addenemiesperround", 2, true, false, false, "Additional enemies added each round.", 0, 100, { name = "Add Enemies Per Round", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvRoundEnemyCap = CreateLambdaConvar("lambdaplayers_teamsystem_zs_roundenemycap", 200, true, false, false, "The hard cap for how many enemies can spawn in a round.", 1, 5000, { name = "Enemy Maximum Per Round", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvMaxAliveEnemies = CreateLambdaConvar("lambdaplayers_teamsystem_zs_maxaliveenemies", 25, true, false, false, "Max alive enemies at once. Set 0 for unlimited.", 0, 300, { name = "Max Alive Enemies", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvMaxAliveAddPerRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_maxalive_addperround", 1, true, false, false, "Adds this many extra alive enemies each round to increase endless pressure.", 0, 50, { name = "Max Alive Added Per Round", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvSpawnInterval = CreateLambdaConvar("lambdaplayers_teamsystem_zs_spawninterval", 0.35, true, false, false, "Enemy spawn interval in seconds.", 0.05, 5.0, { name = "Spawn Interval", type = "Slider", decimals = 2, category = LTS_CAT_ZS })
+state.cvSpawnIntervalDecay = CreateLambdaConvar("lambdaplayers_teamsystem_zs_spawninterval_decay", 0.005, true, false, false, "How much the spawn interval shrinks each round.", 0.0, 0.25, { name = "Spawn Interval Decay", type = "Slider", decimals = 3, category = LTS_CAT_ZS })
+state.cvSpawnMinDist = CreateLambdaConvar("lambdaplayers_teamsystem_zs_spawnmindist", 900, true, false, false, "Minimum distance from a player to spawn an enemy.", 0, 6000, { name = "Spawn Min Distance", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvSpawnMaxDist = CreateLambdaConvar("lambdaplayers_teamsystem_zs_spawnmaxdist", 2600, true, false, false, "Maximum distance from a player to spawn an enemy.", 256, 12000, { name = "Spawn Max Distance", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvEnemyHealthMul = CreateLambdaConvar("lambdaplayers_teamsystem_zs_enemyhealthmul", 1.0, true, false, false, "Enemy HP multiplier.", 0.1, 10.0, { name = "Enemy HP Multiplier", type = "Slider", decimals = 1, category = LTS_CAT_ZS })
+state.cvCleanupEnemiesBetweenRounds = CreateLambdaConvar("lambdaplayers_teamsystem_zs_cleanup_betweenrounds", 1, true, false, false, "If enabled, removes remaining enemies between rounds.", 0, 1, { name = "Cleanup Enemies Between Rounds", type = "Bool", category = LTS_CAT_ZS })
+state.cvStartingPoints = CreateLambdaConvar("lambdaplayers_teamsystem_zs_startingpoints", 0, true, false, false, "Points each participant starts with.", 0, 10000, { name = "Starting Points", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvKillPoints = CreateLambdaConvar("lambdaplayers_teamsystem_zs_killpoints", 10, true, false, false, "Personal points awarded per zombie kill.", 0, 500, { name = "Kill Points", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
+state.cvUseRoundTimer = CreateLambdaConvar("lambdaplayers_teamsystem_zs_use_roundtimer", 0, true, false, false, "If enabled, the round has a timer.", 0, 1, { name = "Use Round Timer", type = "Bool", category = LTS_CAT_ZS })
+state.cvRoundTime = CreateLambdaConvar("lambdaplayers_teamsystem_zs_roundtime", 180, true, false, false, "Total time in seconds for each round.", 10, 3600, { name = "Round Time", type = "Slider", decimals = 0, category = LTS_CAT_ZS })
 
 -- THE WEAPON SETTINGS
-state.cvRestrictWeapons = CreateLambdaConvar("lambdaplayers_teamsystem_zs_restrictweapons", 0, true, false, false, "If enabled, all players are forced to one weapon. This will prevent players from using any other weapon (NOT EVERY WEAPON IS LAMBDA PLAYER FRIENDLY, USE WEAPONS LAMBDA PLAYERS CAN EQUIP OR USE DEFAULT WEAPONS).", 0, 1, { name = "Restrict Weapon Giving & Pick-ups", type = "Bool", category = "Team System - Zombie Survival - Weapons" })
+state.cvRestrictWeapons = CreateLambdaConvar("lambdaplayers_teamsystem_zs_restrictweapons", 0, true, false, false, "If enabled, all players are forced to one weapon. This will prevent players from using any other weapon (NOT EVERY WEAPON IS LAMBDA PLAYER FRIENDLY, USE WEAPONS LAMBDA PLAYERS CAN EQUIP OR USE DEFAULT WEAPONS).", 0, 1, { name = "Restrict Weapon Giving & Pick-ups", type = "Bool", category = LTS_CAT_ZS_GUNS })
 state.cvWeaponClass = CreateLambdaConvar("lambdaplayers_teamsystem_zs_weaponclass", "weapon_smg1", true, false, false, "Restricted human weapon class.", 0, 1)
 state.cvWeaponClassLambda = CreateLambdaConvar("lambdaplayers_teamsystem_zs_weaponclass_lambda", "weapon_smg1", true, false, false, "Restricted lambda weapon class.", 0, 1)
 state.cvStarterWeapon = CreateLambdaConvar("lambdaplayers_teamsystem_zs_starterweapon", "m9k_colt1911", true, false, false, "Starter human weapon class.", 0, 1)
 state.cvStarterWeaponLambda = CreateLambdaConvar("lambdaplayers_teamsystem_zs_starterweapon_lambda", "m9k_pistol_colt1911", true, false, false, "Starter lambda weapon class.", 0, 1)
-state.cvWeaponLimit = CreateLambdaConvar("lambdaplayers_teamsystem_zs_weaponlimit", 4, true, false, false, "Maximum amount of weapons a player may carry.", 1, 12, { name = "Weapon Limit", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Weapons" })
-state.cvResetOnRoundOne = CreateLambdaConvar("lambdaplayers_teamsystem_zs_resetloadout_round1", 1, true, false, false, "If enabled, round 1 wipes all players loadouts and gives everyone the selected starter weapon (NOT EVERY WEAPON IS LAMBDA PLAYER FRIENDLY, USE WEAPONS LAMBDA PLAYERS CAN EQUIP OR USE DEFAULT WEAPONS).", 0, 1, { name = "Reset Loadout On Round 1", type = "Bool", category = "Team System - Zombie Survival - Weapons" })
+state.cvWeaponLimit = CreateLambdaConvar("lambdaplayers_teamsystem_zs_weaponlimit", 4, true, false, false, "Maximum amount of weapons a player may carry.", 1, 12, { name = "Weapon Limit", type = "Slider", decimals = 0, category = LTS_CAT_ZS_GUNS })
+state.cvResetOnRoundOne = CreateLambdaConvar("lambdaplayers_teamsystem_zs_resetloadout_round1", 1, true, false, false, "If enabled, round 1 wipes all players loadouts and gives everyone the selected starter weapon (NOT EVERY WEAPON IS LAMBDA PLAYER FRIENDLY, USE WEAPONS LAMBDA PLAYERS CAN EQUIP OR USE DEFAULT WEAPONS).", 0, 1, { name = "Reset Loadout On Round 1", type = "Bool", category = LTS_CAT_ZS_GUNS })
 
 -- THE ADDITIONAL SETTINGS 
-state.cvSpecialRounds = CreateLambdaConvar("lambdaplayers_teamsystem_zs_specialrounds", 0, true, false, false, "If enabled, some rounds spawn antlions instead of zombies.", 0, 1, { name = "Enable Special Rounds", type = "Bool", category = "Team System - Zombie Survival - Additional" })
-state.cvSpecialChance = CreateLambdaConvar("lambdaplayers_teamsystem_zs_specialchance", 0.20, true, false, false, "Chance each round becomes a special antlion round.", 0.0, 1.0, { name = "Special Round Chance", type = "Slider", decimals = 2, category = "Team System - Zombie Survival - Additional" })
-state.cvSpecialMinRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_specialminround", 4, true, false, false, "Special rounds won't appear before this round.", 1, 100, { name = "Special Round Min Round", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Additional" })
-state.cvEndlessSpecials = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless_specials", 1, true, false, false, "If the endless round is enabled, allow special zombies in endless mode (this is similar to COD 2023 & BOCW zombies).", 0, 1, { name = "Endless Specials", type = "Bool", category = "Team System - Zombie Survival - Additional" })
-state.cvEndlessSpecialChance = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless_specialchance", 0.25, true, false, false, "Chance for specials to appear during endless rounds.", 0.0, 1.0, { name = "Endless Special Chance", type = "Slider", decimals = 2, category = "Team System - Zombie Survival - Additional" })
-state.cvEndlessSpecialMinRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless_specialminround", 6, true, false, false, "Minimum round before endless mode can start throwing specials in.", 1, 255, { name = "Endless Special Min Round", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Additional" })
-state.cvUseCustomNPCs = CreateLambdaConvar("lambdaplayers_teamsystem_zs_usecustomnpcs", 0, true, false, false, "If enabled, the Zombie Survival gamemode will instead use NPCs that you want to use (USE ONLY 1 METHOD TO CHANGE THE ZOMBIES, EITHER THE PANEL IN PANELS OR TEXT BELOW) (DO NOT USE LAMBDA PLAYERS AS ZOMBIES, IT CAN POTENTIALLY BREAK THE ADDON) (CHANGING BOTH WILL CAUSE GAMEMODE ISSUES).", 0, 1, { name = "Use Custom NPCs For Zombie Survival", type = "Bool", category = "Team System - Zombie Survival - Additional" })
-state.cvZombieNPCList = CreateLambdaConvar("lambdaplayers_teamsystem_zs_zombie_npclist", "npc_zombie,npc_fastzombie,npc_zombine,npc_poisonzombie", true, false, false, "NPC classes used for regular rounds.", 0, 1, { name = "Zombie NPCs", type = "Text", category = "Team System - Zombie Survival - Additional" })
-state.cvSpecialNPCList = CreateLambdaConvar("lambdaplayers_teamsystem_zs_special_npclist", "npc_antlion,npc_antlionguard", true, false, false, "NPC classes used for special rounds.", 0, 1, { name = "Special Round NPCs", type = "Text", category = "Team System - Zombie Survival - Additional" })
+state.cvSpecialRounds = CreateLambdaConvar("lambdaplayers_teamsystem_zs_specialrounds", 0, true, false, false, "If enabled, some rounds spawn antlions instead of zombies.", 0, 1, { name = "Enable Special Rounds", type = "Bool", category = LTS_CAT_ZS_ADDITIONAL })
+state.cvSpecialChance = CreateLambdaConvar("lambdaplayers_teamsystem_zs_specialchance", 0.20, true, false, false, "Chance each round becomes a special antlion round.", 0.0, 1.0, { name = "Special Round Chance", type = "Slider", decimals = 2, category = LTS_CAT_ZS_ADDITIONAL })
+state.cvSpecialMinRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_specialminround", 4, true, false, false, "Special rounds won't appear before this round.", 1, 100, { name = "Special Round Min Round", type = "Slider", decimals = 0, category = LTS_CAT_ZS_ADDITIONAL })
+state.cvEndlessSpecials = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless_specials", 1, true, false, false, "If the endless round is enabled, allow special zombies in endless mode (this is similar to COD 2023 & BOCW zombies).", 0, 1, { name = "Endless Specials", type = "Bool", category = LTS_CAT_ZS_ADDITIONAL })
+state.cvEndlessSpecialChance = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless_specialchance", 0.25, true, false, false, "Chance for specials to appear during endless rounds.", 0.0, 1.0, { name = "Endless Special Chance", type = "Slider", decimals = 2, category = LTS_CAT_ZS_ADDITIONAL })
+state.cvEndlessSpecialMinRound = CreateLambdaConvar("lambdaplayers_teamsystem_zs_endless_specialminround", 6, true, false, false, "Minimum round before endless mode can start throwing specials in.", 1, 255, { name = "Endless Special Min Round", type = "Slider", decimals = 0, category = LTS_CAT_ZS_ADDITIONAL })
+state.cvSmartSpawns = CreateLambdaConvar("lambdaplayers_teamsystem_zs_smartspawns", 1, true, false, false, "If enabled, Zombie Survival tests spawn positions to avoid bad, blocked or too-visible spots. This uses extra traces per spawn attempt and may slightly impact performance.", 0, 1, { name = "Enable Smart Spawning", type = "Bool", category = LTS_CAT_ZS_ADDITIONAL })
+state.cvSmartSpawnAttempts = CreateLambdaConvar("lambdaplayers_teamsystem_zs_smartspawn_attempts", 8, true, false, false, "How many spawn positions are tested when Smart Spawning is enabled. Higher values improve spawn quality but may slightly impact performance.", 1, 32, { name = "Smart Spawn Attempts", type = "Slider", decimals = 0, category = LTS_CAT_ZS_ADDITIONAL })
+state.cvSmartSpawnRejectVisible = CreateLambdaConvar("lambdaplayers_teamsystem_zs_smartspawn_rejectvisible", 1, true, false, false, "If enabled, Smart Spawning avoids spots with direct line of sight to living participants. This adds extra trace checks and may slightly impact performance.", 0, 1, { name = "Smart Spawn Reject Visible Spots", type = "Bool", category = LTS_CAT_ZS_ADDITIONAL })
+state.cvStuckTeleport = CreateLambdaConvar("lambdaplayers_teamsystem_zs_stuckteleport", 1, true, false, false, "If enabled, stuck zombies are teleported to a new valid spawn position after being motionless for too long. (This will impact performance with very huge enemy counts).", 0, 1, { name = "Teleport Stuck Zombies", type = "Bool", category = LTS_CAT_ZS_ADDITIONAL })
+state.cvStuckCheckInterval = CreateLambdaConvar("lambdaplayers_teamsystem_zs_stuckcheckinterval", 1.0, true, false, false, "How often stuck zombies are checked (Lower values react faster while slightly impacting performance).", 0.1, 5.0, { name = "Stuck Check Interval", type = "Slider", decimals = 1, category = LTS_CAT_ZS_ADDITIONAL })
+state.cvStuckTime = CreateLambdaConvar("lambdaplayers_teamsystem_zs_stucktime", 4.0, true, false, false, "How long a zombie must barely move before it counts as stuck and can be teleported.", 0.5, 20.0, { name = "Stuck Time Before Teleport", type = "Slider", decimals = 1, category = LTS_CAT_ZS_ADDITIONAL })
+state.cvStuckMinMove = CreateLambdaConvar("lambdaplayers_teamsystem_zs_stuckminmove", 18.0, true, false, false, "Minimum movement distance between checks before a zombie is considered moving normally.", 1.0, 128.0, { name = "Stuck Minimum Movement", type = "Slider", decimals = 1, category = LTS_CAT_ZS_ADDITIONAL })
+state.cvUseCustomNPCs = CreateLambdaConvar("lambdaplayers_teamsystem_zs_usecustomnpcs", 0, true, false, false, "If enabled, the Zombie Survival gamemode will instead use NPCs that you want to use (USE ONLY 1 METHOD TO CHANGE THE ZOMBIES, EITHER THE PANEL IN PANELS OR TEXT BELOW) (DO NOT USE LAMBDA PLAYERS AS ZOMBIES, IT CAN POTENTIALLY BREAK THE ADDON) (CHANGING BOTH WILL CAUSE GAMEMODE ISSUES).", 0, 1, { name = "Use Custom NPCs For Zombie Survival", type = "Bool", category = LTS_CAT_ZS_ADDITIONAL })
+state.cvZombieNPCList = CreateLambdaConvar("lambdaplayers_teamsystem_zs_zombie_npclist", "npc_zombie,npc_fastzombie,npc_zombine,npc_poisonzombie", true, false, false, "NPC classes used for regular rounds.", 0, 1, { name = "Zombie NPCs", type = "Text", category = LTS_CAT_ZS_ADDITIONAL })
+state.cvSpecialNPCList = CreateLambdaConvar("lambdaplayers_teamsystem_zs_special_npclist", "npc_antlion,npc_antlionguard", true, false, false, "NPC classes used for special rounds.", 0, 1, { name = "Special Round NPCs", type = "Text", category = LTS_CAT_ZS_ADDITIONAL })
 
 -- THE MYSTERY BOX SETINGS
-CreateLambdaConvar( "lambdaplayers_mysterybox_enabled", 1, true, false, false, "If enabled, Lambda Players will be allowed to use the Mystery Box Entity (Sandbox/TTT) (2023 Update).", 0, 1, { name = "Enable Mystery Box Compat", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_box_radius", 90, true, false, false, "Distance for Lambdas to use nearby mystery boxes (putting it higher than 100 will make it look freaky).", 1, 500, { name = "Box Use Radius", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_reward_radius", 100, true, false, false, "Distance for Lambdas to claim nearby mystery box rewards.", 1, 500, { name = "Reward Pickup Radius", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_scan_interval", 0.33, true, false, false, "How often Lambda Players search for boxes and rewards (Lower values will cause slight performance decreases).", 0.05, 2.0, { name = "Search Interval", type = "Slider", decimals = 2, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_require_outofcombat", 1, true, false, false, "If enabled, Lambda Players will only use mystery boxes while out of combat.", 0, 1, { name = "Use Mystery Box Out Of Combat", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_skip_owned", 1, true, false, false, "If enabled, Lambda Players will not collect weapons from the Mystery Box that they already have.", 0, 1, { name = "Skip Current Weapon", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_guard_enabled", 0, true, false, false, "If enabled, some Lambda Players near mystery boxes may stay and guard the area around it.", 0, 1, { name = "Guard Nearby Boxes", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_guard_chance", 30, true, false, false, "Chance that a Lambda Player will guard a mystery box.", 0, 100, { name = "Guard Chance", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_guard_radius", 250, true, false, false, "How close a guarding Lambda should remain to the box.", 64, 1000, { name = "Guard Radius", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_guard_time_min", 8, true, false, false, "Minimum time a Lambda Player will guard a mystery box.", 1, 120, { name = "Guard Time Min", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_guard_time_max", 18, true, false, false, "Maximum time a Lambda Player will guard near mystery box.", 1, 120, { name = "Guard Time Max", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_uses_min", 1, true, false, false, "Minimum times Lambda Players can use mystery boxes.", 0, 20, { name = "Min Box Uses", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_uses_max", 3, true, false, false, "Maximum times Lambda Players can use mystery boxes.", 0, 20, { name = "Max Box Uses", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Mystery Box Addon" } )
-CreateLambdaConvar( "lambdaplayers_mysterybox_debug", 0, true, false, false, "Print debugging information for the compatibility patches between Lambda Players & the Mystery Box Entity.", 0, 1, { name = "Debug Logging", type = "Bool", category = "Team System - Zombie Survival - Mystery Box Addon" } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_enabled", 1, true, false, false, "If enabled, Lambda Players will be allowed to use the Mystery Box Entity (Sandbox/TTT) (2023 Update).", 0, 1, { name = "Enable Mystery Box Compat", type = "Bool", category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_box_radius", 90, true, false, false, "Distance for Lambdas to use nearby mystery boxes (putting it higher than 100 will make it look freaky).", 1, 500, { name = "Box Use Radius", type = "Slider", decimals = 0, category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_reward_radius", 100, true, false, false, "Distance for Lambdas to claim nearby mystery box rewards.", 1, 500, { name = "Reward Pickup Radius", type = "Slider", decimals = 0, category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_scan_interval", 0.33, true, false, false, "How often Lambda Players search for boxes and rewards (Lower values will cause slight performance decreases).", 0.05, 2.0, { name = "Search Interval", type = "Slider", decimals = 2, category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_require_outofcombat", 1, true, false, false, "If enabled, Lambda Players will only use mystery boxes while out of combat.", 0, 1, { name = "Use Mystery Box Out Of Combat", type = "Bool", category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_skip_owned", 1, true, false, false, "If enabled, Lambda Players will not collect weapons from the Mystery Box that they already have.", 0, 1, { name = "Skip Current Weapon", type = "Bool", category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_enabled", 0, true, false, false, "If enabled, some Lambda Players near mystery boxes may stay and guard the area around it.", 0, 1, { name = "Guard Nearby Boxes", type = "Bool", category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_chance", 30, true, false, false, "Chance that a Lambda Player will guard a mystery box.", 0, 100, { name = "Guard Chance", type = "Slider", decimals = 0, category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_radius", 250, true, false, false, "How close a guarding Lambda should remain to the box.", 64, 1000, { name = "Guard Radius", type = "Slider", decimals = 0, category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_time_min", 8, true, false, false, "Minimum time a Lambda Player will guard a mystery box.", 1, 120, { name = "Guard Time Min", type = "Slider", decimals = 0, category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_guard_time_max", 18, true, false, false, "Maximum time a Lambda Player will guard near mystery box.", 1, 120, { name = "Guard Time Max", type = "Slider", decimals = 0, category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_uses_min", 1, true, false, false, "Minimum times Lambda Players can use mystery boxes.", 0, 20, { name = "Min Box Uses", type = "Slider", decimals = 0, category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_uses_max", 3, true, false, false, "Maximum times Lambda Players can use mystery boxes.", 0, 20, { name = "Max Box Uses", type = "Slider", decimals = 0, category = LTS_CAT_ZS_MYSTERYBOX } )
+CreateLambdaConvar( "lambdaplayers_mysterybox_debug", 0, true, false, false, "Print debugging information for the compatibility patches between Lambda Players & the Mystery Box Entity.", 0, 1, { name = "Debug Logging", type = "Bool", category = LTS_CAT_ZS_MYSTERYBOX } )
 
 LambdaTeams.LTS_ZS_HumanToLambdaWeapon = LambdaTeams.LTS_ZS_HumanToLambdaWeapon or {
     m9k_acr = "m9k_ar_acr",
@@ -1359,24 +1565,30 @@ LambdaTeams.LTS_ZS_HumanToLambdaWeapon = LambdaTeams.LTS_ZS_HumanToLambdaWeapon 
 }
 
 -- THE POWERUP SETTINGS
-state.cvPowerups = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerups", 1, true, false, false, "Enable powerups in Zombie Survival.", 0, 1, { name = "Enable Powerups", type = "Bool", category = "Team System - Zombie Survival - Powerup Settings" })
-state.cvPowerupChance = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerupchance", 0.08, true, false, false, "Chance an enemy drops a powerup.", 0.0, 1.0, { name = "Powerup Drop Chance", type = "Slider", decimals = 2, category = "Team System - Zombie Survival - Powerup Settings" })
-state.cvPowerupLifetime = CreateLambdaConvar("lambdaplayers_teamsystem_zs_poweruplifetime", 20, true, false, false, "Seconds before a powerup disappears.", 5, 120, { name = "Powerup Lifetime", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Powerup Settings" })
-state.cvMaxWorldPowerups = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerupmaxworld", 2, true, false, false, "Maximum amount of powerups that can exist in the world at once.", 1, 10, { name = "Max World Powerups", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Powerup Settings" })
-state.cvPowerupNuke = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerup_nuke", 1, true, false, false, "Enable the Nuke powerup.", 0, 1, { name = "Enable Nuke Powerup", type = "Bool", category = "Team System - Zombie Survival - Powerup Settings" })
-state.cvPowerupDoublePoints = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerup_doublepoints", 1, true, false, false, "Enable the Double Points powerup.", 0, 1, { name = "Enable Double Points", type = "Bool", category = "Team System - Zombie Survival - Powerup Settings" })
-state.cvPowerupAmmo = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerup_ammo", 1, true, false, false, "Enable the Ammo powerup.", 0, 1, { name = "Enable Ammo Powerup", type = "Bool", category = "Team System - Zombie Survival - Powerup Settings" })
-state.cvDoublePointsDuration = CreateLambdaConvar("lambdaplayers_teamsystem_zs_doublepoints_duration", 25, true, false, false, "How long Double Points lasts.", 1, 120, { name = "Double Points Duration", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Powerup Settings" })
-state.cvAmmoMinClips = CreateLambdaConvar("lambdaplayers_teamsystem_zs_ammo_minclips", 5, true, false, false, "Minimum amount of clips the Ammo powerup gives.", 1, 50, { name = "Ammo Powerup Min Clips", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Powerup Settings" })
-state.cvAmmoMaxClips = CreateLambdaConvar("lambdaplayers_teamsystem_zs_ammo_maxclips", 10, true, false, false, "Maximum amount of clips the Ammo powerup gives.", 1, 50, { name = "Ammo Powerup Max Clips", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - Powerup Settings" })
+state.cvPowerups = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerups", 1, true, false, false, "Enable powerups in Zombie Survival.", 0, 1, { name = "Enable Powerups", type = "Bool", category = LTS_CAT_ZS_POWERUPS })
+state.cvPowerupChance = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerupchance", 0.08, true, false, false, "Chance an enemy drops a powerup.", 0.0, 1.0, { name = "Powerup Drop Chance", type = "Slider", decimals = 2, category = LTS_CAT_ZS_POWERUPS })
+state.cvPowerupLifetime = CreateLambdaConvar("lambdaplayers_teamsystem_zs_poweruplifetime", 20, true, false, false, "Seconds before a powerup disappears.", 5, 120, { name = "Powerup Lifetime", type = "Slider", decimals = 0, category = LTS_CAT_ZS_POWERUPS })
+state.cvMaxWorldPowerups = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerupmaxworld", 2, true, false, false, "Maximum amount of powerups that can exist in the world at once.", 1, 10, { name = "Max World Powerups", type = "Slider", decimals = 0, category = LTS_CAT_ZS_POWERUPS })
+state.cvPowerupNuke = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerup_nuke", 1, true, false, false, "Enable the Nuke powerup.", 0, 1, { name = "Enable Nuke Powerup", type = "Bool", category = LTS_CAT_ZS_POWERUPS })
+state.cvPowerupDoublePoints = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerup_doublepoints", 1, true, false, false, "Enable the Double Points powerup.", 0, 1, { name = "Enable Double Points", type = "Bool", category = LTS_CAT_ZS_POWERUPS })
+state.cvPowerupAmmo = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerup_ammo", 1, true, false, false, "Enable the Ammo powerup.", 0, 1, { name = "Enable Ammo Powerup", type = "Bool", category = LTS_CAT_ZS_POWERUPS })
+state.cvPowerupInstaKill = CreateLambdaConvar("lambdaplayers_teamsystem_zs_powerup_instakill", 1, true, false, false, "Enable the Insta-Kill powerup.", 0, 1, { name = "Enable Insta-Kill Powerup", type = "Bool", category = LTS_CAT_ZS_POWERUPS })
+state.cvInstaKillDuration = CreateLambdaConvar("lambdaplayers_teamsystem_zs_instakill_duration", 18, true, false, false, "How long Insta-Kill lasts.", 1, 120, { name = "Insta-Kill Duration", type = "Slider", decimals = 0, category = LTS_CAT_ZS_POWERUPS })
+state.cvDoublePointsDuration = CreateLambdaConvar("lambdaplayers_teamsystem_zs_doublepoints_duration", 25, true, false, false, "How long Double Points lasts.", 1, 120, { name = "Double Points Duration", type = "Slider", decimals = 0, category = LTS_CAT_ZS_POWERUPS })
+state.cvAmmoMinClips = CreateLambdaConvar("lambdaplayers_teamsystem_zs_ammo_minclips", 5, true, false, false, "Minimum amount of clips the Ammo powerup gives.", 1, 50, { name = "Ammo Powerup Min Clips", type = "Slider", decimals = 0, category = LTS_CAT_ZS_POWERUPS })
+state.cvAmmoMaxClips = CreateLambdaConvar("lambdaplayers_teamsystem_zs_ammo_maxclips", 10, true, false, false, "Maximum amount of clips the Ammo powerup gives.", 1, 50, { name = "Ammo Powerup Max Clips", type = "Slider", decimals = 0, category = LTS_CAT_ZS_POWERUPS })
+CreateLambdaConvar( CV_ZS_SND_POWERUP_INSTAKILL, "lambdaplayers/zs/instakill.mp3", true, true, false, "Sound played when the Insta-Kill powerup is picked up.", 0, 1, { name = "Sound - Powerup Insta-Kill", type = "Text", category = LTS_CAT_ZS_POWERUPS } )
+CreateLambdaConvar( CV_ZS_SND_POWERUP_MAXAMMO, "lambdaplayers/zs/maxammo.mp3", true, true, false, "Sound played when the Ammo powerup is picked up.", 0, 1, { name = "Sound - Powerup Max Ammo", type = "Text", category = LTS_CAT_ZS_POWERUPS } )
+CreateLambdaConvar( CV_ZS_SND_POWERUP_MOREPOINTS, "lambdaplayers/zs/morepoints.mp3", true, true, false, "Sound played when the Double Points powerup is picked up.", 0, 1, { name = "Sound - Powerup More Points", type = "Text", category = LTS_CAT_ZS_POWERUPS } )
+CreateLambdaConvar( CV_ZS_SND_POWERUP_NUKE, "lambdaplayers/zs/nuke.mp3", true, true, false, "Sound played when the Nuke powerup is picked up.", 0, 1, { name = "Sound - Powerup Nuke", type = "Text", category = LTS_CAT_ZS_POWERUPS } )
 
 -- THE PVP SETTINGS
-state.cvPvPEnable = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_enable", 0, true, false, false, "If enabled, lambda teams compete against each other to win the match.", 0, 1, { name = "Enable PvP", type = "Bool", category = "Team System - Zombie Survival - PVP Settings" })
-state.cvPvPMode = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_mode", 0, true, false, false, "0 = Last Team Standing, 1 = Domination", 0, 1, { name = "Versus Gamemode", type = "Combo", options = { [0] = "Last Team Standing", [1] = "KOTH Points" }, category = "Team System - Zombie Survival - PVP Settings" })
-state.cvPvPRespawns = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_allowrespawn", 0, true, false, false, "If enabled, participants may respawn during the round.", 0, 1, { name = "Allow Respawns", type = "Bool", category = "Team System - Zombie Survival - PVP Settings" })
-state.cvPvPRespawnCount = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_respawns", 2, true, false, false, "How many respawns are allowed per participant.", 0, 20, { name = "Respawn Count", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - PVP Settings" })
-state.cvPvPRespawnDelay = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_respawndelay", 4, true, false, false, "Delay before respawning a participant.", 0, 30, { name = "Respawn Delay", type = "Slider", decimals = 0, category = "Team System - Zombie Survival - PVP Settings" })
-state.cvPvPTimerRestart = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_timerrestart", 1, true, false, false, "If the timer hits 0 and more than one team is alive, restart the round.", 0, 1, { name = "Restart On Timeout", type = "Bool", category = "Team System - Zombie Survival - PVP Settings" })
+state.cvPvPEnable = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_enable", 0, true, false, false, "If enabled, lambda teams compete against each other to win the match.", 0, 1, { name = "Enable PvP", type = "Bool", category = LTS_CAT_ZS_PVP })
+state.cvPvPMode = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_mode", 0, true, false, false, "0 = Last Team Standing, 1 = Domination", 0, 1, { name = "Versus Gamemode", type = "Combo", options = { [0] = "Last Team Standing", [1] = "KOTH Points" }, category = LTS_CAT_ZS_PVP })
+state.cvPvPRespawns = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_allowrespawn", 0, true, false, false, "If enabled, participants may respawn during the round.", 0, 1, { name = "Allow Respawns", type = "Bool", category = LTS_CAT_ZS_PVP })
+state.cvPvPRespawnCount = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_respawns", 2, true, false, false, "How many respawns are allowed per participant.", 0, 20, { name = "Respawn Count", type = "Slider", decimals = 0, category = LTS_CAT_ZS_PVP })
+state.cvPvPRespawnDelay = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_respawndelay", 4, true, false, false, "Delay before respawning a participant.", 0, 30, { name = "Respawn Delay", type = "Slider", decimals = 0, category = LTS_CAT_ZS_PVP })
+state.cvPvPTimerRestart = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_timerrestart", 1, true, false, false, "If the timer hits 0 and more than one team is alive, restart the round.", 0, 1, { name = "Restart On Timeout", type = "Bool", category = LTS_CAT_ZS_PVP })
 
     function state:EndMatch(won, endedPrematurely)
         if not self.active then return end
@@ -1464,6 +1676,8 @@ state.cvPvPTimerRestart = CreateLambdaConvar("lambdaplayers_teamsystem_zs_pvp_ti
 
     return state
 end
+-- WELL THIS IS THE END OF WHERE THE MAGIC OCCURS
+-- IF YOU SURVIVED LOOKING AT ALLAT, I SALUTE YOU
 
 LambdaTeams.LTS_ZS_State = LambdaTeams.LTS_ZS_State or BuildState()
 local STATE = LambdaTeams.LTS_ZS_State
@@ -1546,6 +1760,7 @@ local function StartMatch(ply)
         SetGlobalInt("LTS_ZS_EnemiesRemaining", 0)
         SetGlobalInt("LTS_ZS_TimeRemaining", -1)
         SetGlobalInt("LTS_ZS_DoublePointsRemaining", 0)
+		SetGlobalInt("LTS_ZS_InstaKillRemaining", 0)
         SetGlobalString("LTS_ZS_RoundType", "")
         SetGlobalInt("LambdaTeamMatch_GameID", ZS_GAMEID)
 
@@ -1589,6 +1804,10 @@ local function StartMatch(ply)
             end
 
             ZS_ThinkPowerups(STATE)
+			ZS_ThinkStuckEnemies(STATE)
+
+			local ikRem = math.max(0, math.ceil((STATE.instaKillUntil or 0) - CurTime()))
+			SetGlobalInt("LTS_ZS_InstaKillRemaining", ikRem)
 
             if STATE.roundEndsAt then
                 local rem = math.floor(STATE.roundEndsAt - CurTime())
@@ -1671,10 +1890,10 @@ local function StopMatch(ply)
 end
 
 CreateLambdaConsoleCommand("lambdaplayers_teamsystem_zs_startmatch", function(ply) StartMatch(ply) end, false,
-    "Start a match of Zombie Survival.", { name = "Start Zombie Survival", category = "Team System - Gamemodes" })
+    "Start a match of Zombie Survival.", { name = "Start Zombie Survival", category = LTS_CAT_GAMEMODES })
 
 CreateLambdaConsoleCommand("lambdaplayers_teamsystem_zs_stopmatch", function(ply) StopMatch(ply) end, false,
-    "Stop an ongoing match of Zombie Survival.", { name = "Stop Zombie Survival", category = "Team System - Gamemodes" })
+    "Stop an ongoing match of Zombie Survival.", { name = "Stop Zombie Survival", category = LTS_CAT_GAMEMODES })
 
 local function ZS_ResolvePointOwner(attacker, inflictor)
     if IsValid(attacker) and (attacker:IsPlayer() or attacker.IsLambdaPlayer) then
@@ -1695,6 +1914,31 @@ local function ZS_ResolvePointOwner(attacker, inflictor)
         end
     end
 end
+
+local function ZS_ResolveParticipantAttacker(ent)
+    if not IsValid(ent) then return NULL end
+    if ent:IsPlayer() or ent.IsLambdaPlayer then return ent end
+
+    local owner = ent.GetOwner and ent:GetOwner() or NULL
+    if IsValid(owner) and (owner:IsPlayer() or owner.IsLambdaPlayer) then
+        return owner
+    end
+
+    return ent
+end
+
+hook.Add("EntityTakeDamage", "LTS_ZS_InstaKillDamage", function(target, dmginfo)
+    if not STATE.active or STATE.phase ~= "round" then return end
+    if not IsValid(target) or not target.lts_zs_enemy then return end
+    if (STATE.instaKillUntil or 0) <= CurTime() then return end
+
+    local attacker = ZS_ResolveParticipantAttacker(dmginfo:GetAttacker())
+    if not IsValid(attacker) then return end
+    if not (attacker:IsPlayer() or attacker.IsLambdaPlayer) then return end
+    if not ZS_GetParticipantTeam(STATE, attacker) then return end
+
+    dmginfo:SetDamage(math.max(dmginfo:GetDamage(), target:Health() + 500))
+end)
 
 hook.Add("OnNPCKilled", "LTS_ZS_OnNPCKilled", function(npc, attacker, inflictor)
     if not STATE.active or STATE.phase ~= "round" then return end
@@ -2483,7 +2727,7 @@ end
         end,
         true,
         "Opens a panel to pick the human and lambda restricted weapons for Zombie Survival.",
-        { name = "Edit Restricted Weapon", category = "Team System - Zombie Survival - Weapons" }
+        { name = "Edit Restricted Weapon", category = "Lambda Team System - Zombie Survival - Weapons" }
     )
 
     CreateLambdaConsoleCommand(
@@ -2498,6 +2742,6 @@ end
         end,
         true,
         "Opens a panel to pick the human and lambda starter weapons for Zombie Survival.",
-        { name = "Edit Starter Weapon", category = "Team System - Zombie Survival - Weapons" }
+        { name = "Edit Starter Weapon", category = "Lambda Team System - Zombie Survival - Weapons" }
     )
 end

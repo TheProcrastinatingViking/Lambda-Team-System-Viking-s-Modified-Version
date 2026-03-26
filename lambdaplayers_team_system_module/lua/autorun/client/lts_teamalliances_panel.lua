@@ -1,5 +1,5 @@
 hook.Add("AddToolMenuCategories", "LTS_CreateCategory", function()
-    spawnmenu.AddToolCategory("Utilities", "Lambda Players", "Lambda Players")
+    spawnmenu.AddToolCategory("Lambda Team System", "Lambda Team System", "Lambda Team System")
 end)
 
 
@@ -156,8 +156,8 @@ vgui.Register("LTS_AlliancePanel", PANEL, "DPanel")
 
 hook.Add("PopulateToolMenu", "LTS_AddAllianceMenu", function()
     spawnmenu.AddToolMenuOption(
-        "Utilities",
-        "Lambda Players",
+        "Lambda Team System",
+        "Lambda Team System",
         "TeamAlliances",
         "Team Alliances",
         "",

@@ -220,7 +220,36 @@ if SERVER then
                             ( entTeam != ent:Nick() and " (" .. ent:Nick() .. ")" or "" )
                         )
 
-                        self.OldColor = self:GetCapturerColor()
+                        local oldTeam = self.OldCapturer
+
+						if LambdaTeams and LambdaTeams.SendLambdaTextEvent then
+							LambdaTeams:SendLambdaTextEvent( "pointgain", {
+								teamName = entTeam,
+								enemyTeamName = ( oldTeam != "Neutral" and oldTeam or nil ),
+								objectiveName = self:GetPointName(),
+								keyEnt = self,
+								maxSpeakers = 1,
+								chance = 50,
+								filter = function( lambda )
+									return LambdaTeams:GetPlayerTeam( lambda ) == entTeam
+								end
+							} )
+
+							if oldTeam and oldTeam != "" and oldTeam != "Neutral" and oldTeam != entTeam then
+								LambdaTeams:SendLambdaTextEvent( "pointloss", {
+									teamName = oldTeam,
+									enemyTeamName = entTeam,
+									objectiveName = self:GetPointName(),
+									keyEnt = self,
+									maxSpeakers = 1,
+									chance = 40,
+									filter = function( lambda )
+										return LambdaTeams:GetPlayerTeam( lambda ) == oldTeam
+									end
+								} )
+							end
+						end
+						self.OldColor = self:GetCapturerColor()
                     end
                 end
             end

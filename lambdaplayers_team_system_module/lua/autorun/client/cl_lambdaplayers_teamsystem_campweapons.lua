@@ -165,6 +165,6 @@ if ( CLIENT ) then
         LTS_OpenCampWeaponPanel,
         true,
         "Opens a panel that allows you to toggle which weapons can be used by Lambda Players for camping.",
-        { name = "Edit Camp Weapons", category = "Team System" }
+        { name = "Edit Camp Weapons", category = "Lambda Team System" }
     )
 end

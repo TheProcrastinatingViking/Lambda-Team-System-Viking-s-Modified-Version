@@ -24,6 +24,20 @@ local timer_Create = timer.Create
 local timer_Remove = timer.Remove
 local file_Exists = file.Exists
 
+LTS_CAT_GENERAL           = "Lambda Team System"
+LTS_CAT_MWS               = "MWS"
+LTS_CAT_GAMEMODES         = "Lambda Team System - Gamemodes"
+LTS_CAT_GAMEMODE_SETTINGS = "Lambda Team System - Gamemode Settings"
+LTS_CAT_KOTH_AD           = "Lambda Team System - KOTH/AD"
+LTS_CAT_CTF               = "Lambda Team System - CTF"
+LTS_CAT_TDM               = "Lambda Team System - TDM"
+LTS_CAT_KD                = "Lambda Team System - KD"
+LTS_CAT_HQ                = "Lambda Team System - HQ"
+LTS_CAT_ASSAULT           = "Lambda Team System - Assault"
+LTS_CAT_SALVAGE_RUN       = "Lambda Team System - Salvage Run"
+LTS_CAT_SALVAGE_RUN_AI	  = "Lambda Team System - Salvage Run - Combine"
+LTS_CAT_SABOTAGE          = "Lambda Team System - Sabotage"
+
 
 local modulePrefix = "Lambda_TeamSystem_"
 local defaultPlyClr = Color( 255, 255, 100 )
@@ -101,12 +115,12 @@ end
 
 ---
 
-local teamsEnabled  = CreateLambdaConvar( "lambdaplayers_teamsystem_enable", 0, true, false, false, "Enables the work of the module.", 0, 1, { name = "Enable Team System", type = "Bool", category = "Team System" } )
-local mwsTeam       = CreateLambdaConvar( "lambdaplayers_teamsystem_mws_spawnteam", "", true, false, false, "The team the newly spawned Lambda Players from MWS should be assigned into.", 0, 1, { name = "Spawn Team", type = "Combo", options = LambdaTeams.TeamOptionsRandom, category = "MWS" } )
-local incNoTeams    = CreateLambdaConvar( "lambdaplayers_teamsystem_mws_includenoteams", 0, true, false, false, "When spawning a Lambda Player from MWS with random team, should they also have a chance to spawn without being assigned to any team?", 0, 1, { name = "Include Neutral To Random Teams", type = "Bool", category = "MWS" }  )
-local mwsTeamLimit  = CreateLambdaConvar( "lambdaplayers_teamsystem_mws_teamlimit", 0, true, false, false, "The limit of how many members can be allowed to be assigned to each team. Set to zero for no limit.", 0, 50, { name = "Team Member Limit", type = "Slider", decimals = 0, category = "MWS" }  )
-CreateLambdaConvar( "lambdaplayers_teamsystem_lambdateam", "", true, true, true, "The team the newly spawned Lambda Players should be assigned into.", 0, 1, { name = "Lambda Team", type = "Combo", options = LambdaTeams.TeamOptionsRandom, category = "Team System" } )
-local playerTeam    = CreateLambdaConvar( "lambdaplayers_teamsystem_playerteam", "", true, true, true, "The lambda team you are currently assigned to.", 0, 1, { name = "Player Team", type = "Combo", options = LambdaTeams.TeamOptions, category = "Team System" }  )
+local teamsEnabled  = CreateLambdaConvar( "lambdaplayers_teamsystem_enable", 0, true, false, false, "Enables the work of the module.", 0, 1, { name = "Enable Team System", type = "Bool", category = LTS_CAT_GENERAL } )
+local mwsTeam       = CreateLambdaConvar( "lambdaplayers_teamsystem_mws_spawnteam", "", true, false, false, "The team the newly spawned Lambda Players from MWS should be assigned into.", 0, 1, { name = "Spawn Team (MWS)", type = "Combo", options = LambdaTeams.TeamOptionsRandom, category = LTS_CAT_MWS } )
+local incNoTeams    = CreateLambdaConvar( "lambdaplayers_teamsystem_mws_includenoteams", 0, true, false, false, "When spawning a Lambda Player from MWS with random team, should they also have a chance to spawn without being assigned to any team?", 0, 1, { name = "Include Neutral To Random Teams", type = "Bool", category = LTS_CAT_MWS }  )
+local mwsTeamLimit  = CreateLambdaConvar( "lambdaplayers_teamsystem_mws_teamlimit", 0, true, false, false, "The limit of how many members can be allowed to be assigned to each team. Set to zero for no limit.", 0, 50, { name = "Team Member Limit", type = "Slider", decimals = 0, category = LTS_CAT_MWS }  )
+CreateLambdaConvar( "lambdaplayers_teamsystem_lambdateam", "", true, true, true, "The team the newly spawned Lambda Players should be assigned into.", 0, 1, { name = "Lambda Team", type = "Combo", options = LambdaTeams.TeamOptionsRandom, category = LTS_CAT_GENERAL } )
+local playerTeam    = CreateLambdaConvar( "lambdaplayers_teamsystem_playerteam", "", true, true, true, "The lambda team you are currently assigned to.", 0, 1, { name = "Player Team", type = "Combo", options = LambdaTeams.TeamOptions, category = LTS_CAT_GENERAL }  )
 
 if SERVER then
     SetGlobalBool("LambdaTeamSystem_Enabled", TeamSystemEnabled())
@@ -124,44 +138,44 @@ CreateLambdaConsoleCommand( "lambdaplayers_teamsystem_updateteamlist", function(
 
 -- Oops someone didnt know how to spell editing
     ply:ConCommand( "spawnmenu_reload" )
-end, true, "Refreshes the team list. Use this after editing teams in the team panel.", { name = "Refresh Team List", category = "Team System" } )
+end, true, "Refreshes the team list. Use this after editing teams in the team panel.", { name = "Refresh Team List", category = LTS_CAT_GENERAL } )
 
 -- General Settings (Also why tf did you space out the convars so much star I genuinely wanna know)
-CreateLambdaConvar( "lambdaplayers_teamsystem_includenoteams", 0, true, true, true, "When spawning a Lambda Player with random team, should they also have a chance to spawn without being assigned to a team?", 0, 1, { name = "Include Neutral To Random Teams", type = "Bool", category = "Team System" } )
-local teamLimit = CreateLambdaConvar( "lambdaplayers_teamsystem_teamlimit", 0, true, false, false, "The limit of how many members can be allowed to be assigned to each team. Set to 0 for no limit.", 0, 50, { name = "Team Member Limit", type = "Slider", decimals = 0, category = "Team System" } )
-local attackOthers = CreateLambdaConvar( "lambdaplayers_teamsystem_attackotherteams", 0, true, false, false, "If enabled, Lambda Players will attack other Lambda Players outside of their team or alliance.", 0, 1, { name = "Attack On Sight", type = "Bool", category = "Team System" } )
-local stickTogether = CreateLambdaConvar( "lambdaplayers_teamsystem_sticktogether", 1, true, false, false, "If enabled, Lambda Players will attempt to stay together with their teamates.", 0, 1, { name = "Stick Together", type = "Bool", category = "Team System" } )
-local huntDown = CreateLambdaConvar( "lambdaplayers_teamsystem_huntdownotherteams", 0, true, false, false, "If enabled, Lambda Players will hunt down other Lambda Players not on their team (enable Attack On Sight for this to take full effect).", 0, 1, { name = "Hunt Down Enemy Teams", type = "Bool", category = "Team System" } )
-local teamAggression = CreateLambdaConvar( "lambdaplayers_teamsystem_aggression", 50, true, false, false, "How committed Lambda Players should be when reacting to enemy teams (Lower values make them break off sooner, Higher values make them chase harder & longer).", 0, 100, { name = "Aggression Level", type = "Slider", decimals = 0, category = "Team System" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_includenoteams", 0, true, true, true, "When spawning a Lambda Player with random team, should they also have a chance to spawn without being assigned to a team?", 0, 1, { name = "Include Neutral To Random Teams", type = "Bool", category = LTS_CAT_GENERAL } )
+local teamLimit = CreateLambdaConvar( "lambdaplayers_teamsystem_teamlimit", 0, true, false, false, "The limit of how many members can be allowed to be assigned to each team. Set to 0 for no limit.", 0, 50, { name = "Team Member Limit", type = "Slider", decimals = 0, category = LTS_CAT_GENERAL } )
+local attackOthers = CreateLambdaConvar( "lambdaplayers_teamsystem_attackotherteams", 0, true, false, false, "If enabled, Lambda Players will attack other Lambda Players outside of their team or alliance.", 0, 1, { name = "Attack On Sight", type = "Bool", category = LTS_CAT_GENERAL } )
+local stickTogether = CreateLambdaConvar( "lambdaplayers_teamsystem_sticktogether", 1, true, false, false, "If enabled, Lambda Players will attempt to stay together with their teamates.", 0, 1, { name = "Stick Together", type = "Bool", category = LTS_CAT_GENERAL } )
+local huntDown = CreateLambdaConvar( "lambdaplayers_teamsystem_huntdownotherteams", 0, true, false, false, "If enabled, Lambda Players will hunt down other Lambda Players not on their team (enable Attack On Sight for this to take full effect).", 0, 1, { name = "Hunt Down Enemy Teams", type = "Bool", category = LTS_CAT_GENERAL } )
+local teamAggression = CreateLambdaConvar( "lambdaplayers_teamsystem_aggression", 50, true, false, false, "How committed Lambda Players should be when reacting to enemy teams (Lower values make them break off sooner, Higher values make them chase harder & longer).", 0, 100, { name = "Aggression Level", type = "Slider", decimals = 0, category = LTS_CAT_GENERAL } )
 local specificCampWeapons = CreateLambdaConvar( "lambdaplayers_teamsystem_specificcampweapons", "m9k_hvy_areshrike, m9k_hvy_aw50, m9k_hvy_bar, m9k_hvy_barret_m82, m9k_hvy_barret_m98b, m9k_hvy_dragunov_svd, m9k_hvy_dragunov_svu, m9k_hvy_fg42, m9k_hvy_g2contender, m9k_hvy_hksl8, m9k_hvy_intervention, m9k_hvy_m24, m9k_hvy_m60, m9k_hvy_m249, m9k_hvy_pkm, m9k_hvy_psg1, m9k_hvy_remington_7615p, m9k_hvy_svt40", true, false, false, "If a Lambda Player is using a defined weapon, they may hold their position and fire from range instead of pushing forward (EACH VALUE NEEDS TO BE A WEAPON CLASS LAMBDAS CAN USE, HUMAN WEAPONS WILL NOT WORK).", 0, 1 )
-local noFriendFire = CreateLambdaConvar( "lambdaplayers_teamsystem_nofriendlyfire", 1, true, false, false, "If enabled, Lambda & Human players will not be able to damage each other if they're on the same team.", 0, 1, { name = "No Friendly Fire", type = "Bool", category = "Team System" } )
-local useSpawnpoints = CreateLambdaConvar( "lambdaplayers_teamsystem_usespawnpoints", 0, true, false, false, "If enabled, Lambda Players will respawn at one of their team's spawn points.", 0, 1, { name = "Respawn In Team Spawn Points", type = "Bool", category = "Team System" } )
-local plyUseSpawnpoints = CreateLambdaConvar( "lambdaplayers_teamsystem_plyusespawnpoints", 0, true, true, true, "If enabled, you will respawn at one of your Lambda Team's spawn points.", 0, 1, { name = "Respawn In Team Spawn Points", type = "Bool", category = "Team System" } )
-local drawTeamName = CreateLambdaConvar( "lambdaplayers_teamsystem_drawteamname", 1, true, true, false, "Enables drawing team names above your Lambda teammates.", 0, 1, { name = "Draw Team Names", type = "Bool", category = "Team System" } )
-local drawHalo = CreateLambdaConvar( "lambdaplayers_teamsystem_drawhalo", 1, true, true, false, "Enables drawing halos around you Lambda Teammates", 0, 1, { name = "Draw Halos", type = "Bool", category = "Team System" } )
-local teamSpawnEnemyRadius = CreateLambdaConvar( "lambdaplayers_teamsystem_teamspawn_enemyradius", 600, true, false, false, "How close enemies can be to a team spawn before it is avoided. Set to 0 to disable safe spawning.", 0, 4000, { name = "Safezone Spawn Radius", type = "Slider", decimals = 0, category = "Team System" } )
-local drawTeamNameMaxDist = CreateLambdaConvar( "lambdaplayers_teamsystem_drawteamname_maxdist", 2000, true, true, false, "Max distance at which teammate names are drawn. Set to 0 to disable the distance limit.", 0, 10000, { name = "Team Name Max Distance", type = "Slider", decimals = 0, category = "Team System" } )
-local drawHaloMaxDist = CreateLambdaConvar( "lambdaplayers_teamsystem_drawhalo_maxdist", 1800, true, true, false, "Max distance at which teammate halos are drawn. Set to 0 to disable the distance limit.", 0, 10000, { name = "Halo Max Distance", type = "Slider", decimals = 0, category = "Team System" } )
+local noFriendFire = CreateLambdaConvar( "lambdaplayers_teamsystem_nofriendlyfire", 1, true, false, false, "If enabled, Lambda & Human players will not be able to damage each other if they're on the same team.", 0, 1, { name = "No Friendly Fire", type = "Bool", category = LTS_CAT_GENERAL } )
+local useSpawnpoints = CreateLambdaConvar( "lambdaplayers_teamsystem_usespawnpoints", 0, true, false, false, "If enabled, Lambda Players will respawn at one of their team's spawn points.", 0, 1, { name = "Respawn In Team Spawn Points", type = "Bool", category = LTS_CAT_GENERAL } )
+local plyUseSpawnpoints = CreateLambdaConvar( "lambdaplayers_teamsystem_plyusespawnpoints", 0, true, true, true, "If enabled, you will respawn at one of your Lambda Team's spawn points.", 0, 1, { name = "Respawn In Team Spawn Points", type = "Bool", category = LTS_CAT_GENERAL } )
+local drawTeamName = CreateLambdaConvar( "lambdaplayers_teamsystem_drawteamname", 1, true, true, false, "Enables drawing team names above your Lambda teammates.", 0, 1, { name = "Draw Team Names", type = "Bool", category = LTS_CAT_GENERAL } )
+local drawHalo = CreateLambdaConvar( "lambdaplayers_teamsystem_drawhalo", 1, true, true, false, "Enables drawing halos around you Lambda Teammates", 0, 1, { name = "Draw Halos", type = "Bool", category = LTS_CAT_GENERAL } )
+local teamSpawnEnemyRadius = CreateLambdaConvar( "lambdaplayers_teamsystem_teamspawn_enemyradius", 600, true, false, false, "How close enemies can be to a team spawn before it is avoided. Set to 0 to disable safe spawning.", 0, 4000, { name = "Safezone Spawn Radius", type = "Slider", decimals = 0, category = LTS_CAT_GENERAL } )
+local drawTeamNameMaxDist = CreateLambdaConvar( "lambdaplayers_teamsystem_drawteamname_maxdist", 2000, true, true, false, "Max distance at which teammate names are drawn. Set to 0 to disable the distance limit.", 0, 10000, { name = "Team Name Max Distance", type = "Slider", decimals = 0, category = LTS_CAT_GENERAL } )
+local drawHaloMaxDist = CreateLambdaConvar( "lambdaplayers_teamsystem_drawhalo_maxdist", 1800, true, true, false, "Max distance at which teammate halos are drawn. Set to 0 to disable the distance limit.", 0, 10000, { name = "Halo Max Distance", type = "Slider", decimals = 0, category = LTS_CAT_GENERAL } )
 ---
 
-local gmMatchTime = CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_gametime", 5, true, false, false, "The time the gamemode match will take to end in minutes. Set to zero for an endless match.", 0, 180, { name = "Match Time", type = "Slider", decimals = 0, category = "Team System - Gamemode Settings" } )
-local gmPointsLimit = CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_pointslimit", 30, true, false, false, "How many points should the team score in gamemode match in order to win. Set to zero to disable points", 0, 5000, { name = "Points Limit", type = "Slider", decimals = 0, category = "Team System - Gamemode Settings" } )
-local gmTPToSpawns = CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_tptospawns", 1, true, false, false, "If team players should be teleported to their spawn positions on gamemode start", 0, 1, { name = "Teleport To Spawn On Start", type = "Bool", category = "Team System - Gamemode Settings" } )
-local objCommitTime = CreateLambdaConvar( "lambdaplayers_teamsystem_obj_commit_time", 3.5, true, false, false, "How long Lambdas Players should commit to a specific objective before reconsidering/changing (Higher values make the gamemodes faster paced).", 0.5, 15, { name = "Objective Commitment Time", type = "Slider", decimals = 1, category = "Team System - Gamemode Settings" } )
-local objRepathCooldown = CreateLambdaConvar( "lambdaplayers_teamsystem_obj_repath_cooldown", 1.0, true, false, false, "How often should Lambda Players retry to commit to gamemode objectives if they fail (lower values will lower performance slightly).", 0.1, 10, { name = "Objective Retrying", type = "Slider", decimals = 1, category = "Team System - Gamemode Settings" } )
-local objStuckTime = CreateLambdaConvar( "lambdaplayers_teamsystem_obj_stuck_time", 2.0, true, false, false, "How long must a Lambda Player fail to make progress before objective is considered a lost cause (I recommend setting it anywhere between 2-6 seconds, imagine sucking lol).", 0.5, 10, { name = "Objective Confidence", type = "Slider", decimals = 1, category = "Team System - Gamemode Settings" } )
-local objStuckMove = CreateLambdaConvar( "lambdaplayers_teamsystem_obj_stuck_move", 55, true, false, false, "The minimum movement over stuck time to be considered making progress (sad piano music).", 5, 250, { name = "Confidence Movement Threshold", type = "Slider", decimals = 0, category = "Team System - Gamemode Settings" } )
+local gmMatchTime = CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_gametime", 5, true, false, false, "The time the gamemode match will take to end in minutes. Set to zero for an endless match.", 0, 180, { name = "Match Time", type = "Slider", decimals = 0, category = LTS_CAT_GAMEMODE_SETTINGS } )
+local gmPointsLimit = CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_pointslimit", 30, true, false, false, "How many points should the team score in gamemode match in order to win. Set to zero to disable points", 0, 5000, { name = "Points Limit", type = "Slider", decimals = 0, category = LTS_CAT_GAMEMODE_SETTINGS } )
+local gmTPToSpawns = CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_tptospawns", 1, true, false, false, "If team players should be teleported to their spawn positions on gamemode start", 0, 1, { name = "Teleport To Spawn On Start", type = "Bool", category = LTS_CAT_GAMEMODE_SETTINGS } )
+local objCommitTime = CreateLambdaConvar( "lambdaplayers_teamsystem_obj_commit_time", 3.5, true, false, false, "How long Lambdas Players should commit to a specific objective before reconsidering/changing (Higher values make the gamemodes faster paced).", 0.5, 15, { name = "Objective Commitment Time", type = "Slider", decimals = 1, category = LTS_CAT_GAMEMODE_SETTINGS } )
+local objRepathCooldown = CreateLambdaConvar( "lambdaplayers_teamsystem_obj_repath_cooldown", 1.0, true, false, false, "How often should Lambda Players retry to commit to gamemode objectives if they fail (lower values will lower performance slightly).", 0.1, 10, { name = "Objective Retrying", type = "Slider", decimals = 1, category = LTS_CAT_GAMEMODE_SETTINGS } )
+local objStuckTime = CreateLambdaConvar( "lambdaplayers_teamsystem_obj_stuck_time", 2.0, true, false, false, "How long must a Lambda Player fail to make progress before objective is considered a lost cause (I recommend setting it anywhere between 2-6 seconds, imagine sucking lol).", 0.5, 10, { name = "Objective Confidence", type = "Slider", decimals = 1, category = LTS_CAT_GAMEMODE_SETTINGS } )
+local objStuckMove = CreateLambdaConvar( "lambdaplayers_teamsystem_obj_stuck_move", 55, true, false, false, "The minimum movement over stuck time to be considered making progress (sad piano music).", 5, 250, { name = "Confidence Movement Threshold", type = "Slider", decimals = 0, category = LTS_CAT_GAMEMODE_SETTINGS } )
 
 
 --
-local gmMinTeams = CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_minteams", 2, true, false, false, "The minimum amount of active teams required to start a gamemode match (Set to 1 if you are playing Zombie Survival or it will not start).", 1, 16, { name = "Minimum Teams To Start", type = "Slider", decimals = 0, category = "Team System - Gamemode Settings" } )
-local hudScoreRefresh = CreateLambdaConvar( "lambdaplayers_teamsystem_hud_score_refresh", 0.25, true, true, false, "How often the match score list on the HUD refreshes. Lower values are more responsive but slightly heavier.", 0.05, 2.0, { name = "HUD Score Refresh", type = "Slider", decimals = 2, category = "Team System - Gamemode Settings" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_onwin", "lambdaplayers/gamewon/*", true, true, false, "The sound that plays when your team wins a gamemode match", 0, 1, { name = "Sound - On Game Won", type = "Text", category = "Team System - Gamemode Settings" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_onlose", "lambdaplayers/gamelost/*", true, true, false, "The sound that plays when your team loses a gamemode match", 0, 1, { name = "Sound - On Game Lost", type = "Text", category = "Team System - Gamemode Settings" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_gamestart", "lambdaplayers/gamestart/*", true, true, false, "The sound that plays when a gamemode starts.", 0, 1, { name = "Sound - On Match Begin", type = "Text", category = "Team System - Gamemode Settings" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_match60left", "", true, true, false, "The sound that plays when there's 60 seconds left before match's end.", 0, 1, { name = "Sound - 60 Second Left", type = "Text", category = "Team System - Gamemode Settings" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_match30left", "lambdaplayers/matchtimeleft/30seconds.mp3", true, true, false, "The sound that plays when there's 30 seconds left before match's end.", 0, 1, { name = "Sound - 30 Second Left", type = "Text", category = "Team System - Gamemode Settings" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_match10left", "lambdaplayers/matchtimeleft/10seconds.mp3", true, true, false, "The sound that plays when there's 10 seconds left before match's end.", 0, 1, { name = "Sound - 10 Second Left", type = "Text", category = "Team System - Gamemode Settings" } )
+local gmMinTeams = CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_minteams", 2, true, false, false, "The minimum amount of active teams required to start a gamemode match (Set to 1 if you are playing Zombie Survival or it will not start).", 1, 16, { name = "Minimum Teams To Start", type = "Slider", decimals = 0, category = LTS_CAT_GAMEMODE_SETTINGS } )
+local hudScoreRefresh = CreateLambdaConvar( "lambdaplayers_teamsystem_hud_score_refresh", 0.25, true, true, false, "How often the match score list on the HUD refreshes. Lower values are more responsive but slightly heavier.", 0.05, 2.0, { name = "HUD Score Refresh", type = "Slider", decimals = 2, category = LTS_CAT_GAMEMODE_SETTINGS } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_onwin", "lambdaplayers/gamewon/*", true, true, false, "The sound that plays when your team wins a gamemode match", 0, 1, { name = "Sound - On Game Won", type = "Text", category = LTS_CAT_GAMEMODE_SETTINGS} )
+CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_onlose", "lambdaplayers/gamelost/*", true, true, false, "The sound that plays when your team loses a gamemode match", 0, 1, { name = "Sound - On Game Lost", type = "Text", category = LTS_CAT_GAMEMODE_SETTINGS } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_gamestart", "lambdaplayers/gamestart/*", true, true, false, "The sound that plays when a gamemode starts.", 0, 1, { name = "Sound - On Match Begin", type = "Text", category = LTS_CAT_GAMEMODE_SETTINGS } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_match60left", "", true, true, false, "The sound that plays when there's 60 seconds left before match's end.", 0, 1, { name = "Sound - 60 Second Left", type = "Text", category = LTS_CAT_GAMEMODE_SETTINGS } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_match30left", "lambdaplayers/matchtimeleft/30seconds.mp3", true, true, false, "The sound that plays when there's 30 seconds left before match's end.", 0, 1, { name = "Sound - 30 Second Left", type = "Text", category = LTS_CAT_GAMEMODE_SETTINGS } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_gamemodes_snd_match10left", "lambdaplayers/matchtimeleft/10seconds.mp3", true, true, false, "The sound that plays when there's 10 seconds left before match's end.", 0, 1, { name = "Sound - 10 Second Left", type = "Text", category = LTS_CAT_GAMEMODE_SETTINGS } )
 
 LambdaTeams.TeamPoints = LambdaTeams.TeamPoints or {}
 LambdaTeams.SoundsToStop = LambdaTeams.SoundsToStop or {}
@@ -203,12 +217,16 @@ local function GetTheMatchStats( endedPrematurely )
             samePoints = ( samePoints + 1 )
         end
 
-        contesters[ #contesters + 1 ] = { displayName, teamPoints, teamColor }
-    end
-
-    table.sort( contesters, function( a, b )
-        return a[ 2 ] > b[ 2 ]
-    end )
+		contesters[ #contesters + 1 ] = {
+			teamName = teamName,
+			displayName = displayName,
+			points = teamPoints,
+			color = teamColor
+		}
+		end
+		table.sort( contesters, function( a, b )
+			return a.points > b.points
+		end )
 
     if samePoints != #contesters then
         local winName = ( winnerDisplayName or winnerTeam or "Unknown" )
@@ -260,20 +278,31 @@ local function GetTheMatchStats( endedPrematurely )
             isTDMFFA and "all" or winnerTeam
         )
 
-        for _, data in ipairs( contesters ) do
-            if data[ 1 ] == winName then continue end
+		for _, data in ipairs( contesters ) do
+			if data.teamName == winnerTeam then continue end
 
-            LambdaPlayers_ChatAdd(
-                nil,
-                color_white, "[LTS] ",
-                data[ 3 ], data[ 1 ],
-                color_glacier, " had a total of ",
-                color_white, tostring( data[ 2 ] ),
-                color_glacier, " ",
-                pointsName,
-                "!"
-            )
-        end
+			if matchWinReason == "assault_fullcap"
+			and LambdaTeams.Assault_State
+			and data.teamName == LambdaTeams.Assault_State.DefendTeam then
+				LambdaPlayers_ChatAdd(
+					nil,
+					color_white, "[LTS] ",
+					data.color, data.displayName,
+					color_glacier, " failed to hold every sector >:("
+				)
+			else
+				LambdaPlayers_ChatAdd(
+					nil,
+					color_white, "[LTS] ",
+					data.color, data.displayName,
+					color_glacier, " had a total of ",
+					color_white, tostring( data.points ),
+					color_glacier, " ",
+					pointsName,
+					"!"
+				)
+			end
+		end
     else
         LambdaPlayers_ChatAdd(
             nil,
@@ -1520,8 +1549,14 @@ function LambdaTeams:SalvageRun_Tick()
         LambdaTeams:TryBankSalvage( ent )
     end
 
-    if SERVER and LambdaTeams.SalvageRun_CombineTick then
-        LambdaTeams:SalvageRun_CombineTick()
+    if SERVER then
+        if LambdaTeams.SalvageRun_PackageTick then
+            LambdaTeams:SalvageRun_PackageTick()
+        end
+
+        if LambdaTeams.SalvageRun_CombineTick then
+            LambdaTeams:SalvageRun_CombineTick()
+        end
     end
 end
 
@@ -1934,6 +1969,12 @@ local function StartGamemode( ply, gameIndex, stopSnds )
 				bank:BecomeNeutral()
 			end
 		end
+
+		for _, pkg in ipairs( ents_FindByClass( "lambda_salvage_package" ) ) do
+			if IsValid( pkg ) then
+				pkg:Remove()
+			end
+		end
 	else
 		for _, kp in ipairs( ents_FindByClass( "lambda_koth_point" ) ) do
 			if IsValid( kp ) and kp:GetIsCaptured() then
@@ -1954,8 +1995,9 @@ local function StartGamemode( ply, gameIndex, stopSnds )
         LambdaTeams.Assault_CurrentPoint = nil
         LambdaTeams.Assault_Points = nil
     elseif gameIndex == 7 then
-        LambdaTeams.Salvage_State = nil
-        LambdaTeams.Salvage_Banks = nil
+		LambdaTeams.Salvage_State = nil
+		LambdaTeams.Salvage_Banks = nil
+		LambdaTeams.SR_PackageState = nil
     elseif gameIndex == 8 then
         LambdaTeams.Sabotage_State = nil
         LambdaTeams.Sabotage_Sites = nil
@@ -2053,198 +2095,210 @@ end
 
 CreateLambdaConsoleCommand( "lambdaplayers_teamsystem_koth_startmatch", function( ply )
     StartGamemode( ply, 1 )
-end, false, "Start a match of the KOTH/AD gamemode", { name = "Start KOTH/AD Match", category = "Team System - Gamemodes" } )
+end, false, "Start a match of the KOTH/AD gamemode", { name = "Start KOTH/AD Match", category = LTS_CAT_GAMEMODES } )
 
 CreateLambdaConsoleCommand( "lambdaplayers_teamsystem_ctf_startmatch", function( ply )
     StartGamemode( ply, 2 )
-end, false, "Start a match of the Capture The Flag gamemode", { name = "Start CTF Match", category = "Team System - Gamemodes" } )
+end, false, "Start a match of the Capture The Flag gamemode", { name = "Start CTF Match", category = LTS_CAT_GAMEMODES } )
 
 CreateLambdaConsoleCommand( "lambdaplayers_teamsystem_tdm_startmatch", function( ply )
     StartGamemode( ply, 3, { "lambdaplayers_teamsystem_tdm_snd_10killsleft" } )
-end, false, "Start a match of the Team Deathmatch gamemode", { name = "Start TDM Match", category = "Team System - Gamemodes" } )
+end, false, "Start a match of the Team Deathmatch gamemode", { name = "Start TDM Match", category = LTS_CAT_GAMEMODES } )
 
 CreateLambdaConsoleCommand( "lambdaplayers_teamsystem_kd_startmatch", function( ply )
     StartGamemode( ply, 4 )
-end, false, "Start a match of the Kill Confirmed gamemode", { name = "Start KD Match", category = "Team System - Gamemodes" } )
+end, false, "Start a match of the Kill Confirmed gamemode", { name = "Start KD Match", category = LTS_CAT_GAMEMODES } )
 
 CreateLambdaConsoleCommand( "lambdaplayers_teamsystem_hq_startmatch", function( ply )
     StartGamemode( ply, 5 )
-end, false, "Start a match of the Headquarters gamemode", { name = "Start HQ Match", category = "Team System - Gamemodes" } )
+end, false, "Start a match of the Headquarters gamemode", { name = "Start HQ Match", category = LTS_CAT_GAMEMODES } )
 
 CreateLambdaConsoleCommand( "lambdaplayers_teamsystem_assault_startmatch", function( ply )
     StartGamemode( ply, 6 )
-end, false, "Start a match of the Assault gamemode", { name = "Start Assault Match", category = "Team System - Gamemodes" } )
+end, false, "Start a match of the Assault gamemode", { name = "Start Assault Match", category = LTS_CAT_GAMEMODES } )
 
 CreateLambdaConsoleCommand( "lambdaplayers_teamsystem_salvagerun_startmatch", function( ply )
     StartGamemode( ply, 7 )
-end, false, "Start a match of the Salvage Run gamemode", { name = "Start Salvage Run Match", category = "Team System - Gamemodes" } )
+end, false, "Start a match of the Salvage Run gamemode", { name = "Start Salvage Run Match", category = LTS_CAT_GAMEMODES } )
 
 CreateLambdaConsoleCommand( "lambdaplayers_teamsystem_sabotage_startmatch", function( ply )
     StartGamemode( ply, 8 )
-end, false, "Start a match of the Sabotage gamemode", { name = "Start Sabotage Match", category = "Team System - Gamemodes" } )
+end, false, "Start a match of the Sabotage gamemode", { name = "Start Sabotage Match", category = LTS_CAT_GAMEMODES } )
 
-CreateLambdaConvar( "lambdaplayers_teamsystem_koth_capturerate", 0.2, true, false, false, "The speed rate of capturing the KOTH Points.", 0.01, 5.0, { name = "Capture Rate", type = "Slider", decimals = 2, category = "Team System - KOTH/AD" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_koth_scoregaintime", 5, true, false, false, "How much time should pass before the KOTH Point gives point to its team.", 0.1, 60, { name = "Score Gain Time", type = "Slider", decimals = 1, category = "Team System - KOTH/AD" } )
-local kothCapRange = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_capturerange", 500, true, false, false, "How close player should be to start capturing the point.", 100, 1000, { name = "Capture Range", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_koth_capturerate", 0.2, true, false, false, "The speed rate of capturing the KOTH Points.", 0.01, 5.0, { name = "Capture Rate", type = "Slider", decimals = 2, category = LTS_CAT_KOTH_AD } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_koth_scoregaintime", 5, true, false, false, "How much time should pass before the KOTH Point gives point to its team.", 0.1, 60, { name = "Score Gain Time", type = "Slider", decimals = 1, category = LTS_CAT_KOTH_AD } )
+local kothCapRange = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_capturerange", 500, true, false, false, "How close player should be to start capturing the point.", 100, 1000, { name = "Capture Range", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
 
-local kothIconEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_icon_enabled", 1, true, true, false, "If your team's captured KOTH point should have a icon drawn on them.", 0, 1, { name = "Enable Icons", type = "Bool", category = "Team System - KOTH/AD" } )
-local kothIconDrawVisible = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_icon_alwaysdraw", 0, true, true, false, "If the icon should always be drawn no matter if it's visible.", 0, 1, { name = "Always Draw Icon", type = "Bool", category = "Team System - KOTH/AD" } )
-local kothIconFadeStartDist = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_icon_fadeinstartdist", 2000, true, true, false, "How far you should be from the icon for it to completely fade out of view.", 0, 4096, { name = "Icon Fade In Start", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
-local kothIconFadeEndDist = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_icon_fadeinenddist", 500, true, true, false, "How close you should be from the icon for it to become fully visible.", 0, 4096, { name = "Icon Fade In End", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
+local kothIconEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_icon_enabled", 1, true, true, false, "If your team's captured KOTH point should have a icon drawn on them.", 0, 1, { name = "Enable Icons", type = "Bool", category = LTS_CAT_KOTH_AD } )
+local kothIconDrawVisible = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_icon_alwaysdraw", 0, true, true, false, "If the icon should always be drawn no matter if it's visible.", 0, 1, { name = "Always Draw Icon", type = "Bool", category = LTS_CAT_KOTH_AD } )
+local kothIconFadeStartDist = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_icon_fadeinstartdist", 2000, true, true, false, "How far you should be from the icon for it to completely fade out of view.", 0, 4096, { name = "Icon Fade In Start", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
+local kothIconFadeEndDist = CreateLambdaConvar( "lambdaplayers_teamsystem_koth_icon_fadeinenddist", 500, true, true, false, "How close you should be from the icon for it to become fully visible.", 0, 4096, { name = "Icon Fade In End", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
 
-adConquestMode = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_conquest", 0, true, false, false, "If enabled, KOTH/AD uses conquest rules (ticket drain instead of score rising).", 0, 1, { name = "Enable Conquest Rules", type = "Bool", category = "Team System - KOTH/AD" } )
-conquestBaseDrain = CreateLambdaConvar( "lambdaplayers_teamsystem_conquest_basedrain", 1, true, false, false, "Base tickets drained (per tick), scaled by control-point advantage (Conquest only).", 1, 50, { name = "Base Drain Per Tick", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
-conquestKillDrain = CreateLambdaConvar( "lambdaplayers_teamsystem_conquest_killdrain", 1, true, false, false, "Tickets drained from the victim's team per kill (Conquest only).", 0, 50, { name = "Drain On Kill", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
+adConquestMode = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_conquest", 0, true, false, false, "If enabled, KOTH/AD uses conquest rules (ticket drain instead of score rising).", 0, 1, { name = "Enable Conquest Rules", type = "Bool", category = LTS_CAT_KOTH_AD } )
+conquestBaseDrain = CreateLambdaConvar( "lambdaplayers_teamsystem_conquest_basedrain", 1, true, false, false, "Base tickets drained (per tick), scaled by control-point advantage (Conquest only).", 1, 50, { name = "Base Drain Per Tick", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
+conquestKillDrain = CreateLambdaConvar( "lambdaplayers_teamsystem_conquest_killdrain", 1, true, false, false, "Tickets drained from the victim's team per kill (Conquest only).", 0, 50, { name = "Drain On Kill", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
 
-local adRole_DefendWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_role_defend", 35, true, false, false, "How persistent should defenders be.", 0, 100, { name = "Defender Persistence", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
-local adRole_AttackWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_role_attack", 55, true, false, false, "How persistent should attackers be.", 0, 100, { name = "Attacker Persistence", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
-local adRole_RoamWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_role_roam", 10, true, false, false, "How persistent should PVPing players be (higher values will cause matches to last longer).", 0, 100, { name = "Roaming Persistence", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
-local adBotObjective = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_botobjective", 1, true, false, false, "If Lambda Players should actively seek AD/KOTH points (I recommend this to stop matches from being ridiculously long).", 0, 1, { name = "Lambdas Play Objectives", type = "Bool", category = "Team System - KOTH/AD" } )
-local adBotObjectiveRange = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_botobjective_range", 6000, true, false, false, "Max distance Lambdas Players will go to reach objectives.", 0, 10000, { name = "Objective Detection Range", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
-local adBotObjectiveInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_botobjective_incombat", 0, true, false, false, "If Lambda Players should prioritize objectives while in combat.", 0, 1, { name = "Seek Objectives In Combat", type = "Bool", category = "Team System - KOTH/AD" } )
-local adBotStackPenalty = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_botobjective_stackpenalty", 250000, true, false, false, "Penalty per other Lambda already going after an objective (reduces several from going after a single objective).", 0, 1000000, { name = "Stacking Penalty", type = "Slider", decimals = 0, category = "Team System - KOTH/AD" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_koth_snd_onpointcaptured", "lambdaplayers/koth/captured.mp3", true, true, false, "The sound that plays when your team has successfully captured a KOTH point.", 0, 1, { name = "Sound - On Point Capture", type = "Text", category = "Team System - KOTH/AD" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_koth_snd_onpointneutered", "lambdaplayers/koth/holdlost.mp3", true, true, false, "The sound that plays when a KOTH point has become neutral.", 0, 1, { name = "Sound - On Point Neutral", type = "Text", category = "Team System - KOTH/AD" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_koth_snd_onpointrestored", "lambdaplayers/koth/holdrestored.mp3", true, true, false, "The sound that plays when your team's KOTH point is reclaimed back from neutral.", 0, 1, { name = "Sound - On Point Reclaim", type = "Text", category = "Team System - KOTH/AD" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_koth_snd_onpointlost", "lambdaplayers/koth/loss.mp3", true, true, false, "The sound that plays when your team's KOTH point is lost.", 0, 1, { name = "Sound - On Point Lost", type = "Text", category = "Team System - KOTH/AD" } )
+local adRole_DefendWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_role_defend", 35, true, false, false, "How persistent should defenders be.", 0, 100, { name = "Defender Persistence", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
+local adRole_AttackWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_role_attack", 55, true, false, false, "How persistent should attackers be.", 0, 100, { name = "Attacker Persistence", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
+local adRole_RoamWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_role_roam", 10, true, false, false, "How persistent should PVPing players be (higher values will cause matches to last longer).", 0, 100, { name = "Roaming Persistence", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
+local adBotObjective = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_botobjective", 1, true, false, false, "If Lambda Players should actively seek AD/KOTH points (I recommend this to stop matches from being ridiculously long).", 0, 1, { name = "Lambdas Play Objectives", type = "Bool", category = LTS_CAT_KOTH_AD } )
+local adBotObjectiveRange = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_botobjective_range", 6000, true, false, false, "Max distance Lambdas Players will go to reach objectives.", 0, 10000, { name = "Objective Detection Range", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
+local adBotObjectiveInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_botobjective_incombat", 0, true, false, false, "If Lambda Players should prioritize objectives while in combat.", 0, 1, { name = "Seek Objectives In Combat", type = "Bool", category = LTS_CAT_KOTH_AD } )
+local adBotStackPenalty = CreateLambdaConvar( "lambdaplayers_teamsystem_ad_botobjective_stackpenalty", 250000, true, false, false, "Penalty per other Lambda already going after an objective (reduces several from going after a single objective).", 0, 1000000, { name = "Stacking Penalty", type = "Slider", decimals = 0, category = LTS_CAT_KOTH_AD } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_koth_snd_onpointcaptured", "lambdaplayers/koth/captured.mp3", true, true, false, "The sound that plays when your team has successfully captured a KOTH point.", 0, 1, { name = "Sound - On Point Capture", type = "Text", category = LTS_CAT_KOTH_AD } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_koth_snd_onpointneutered", "lambdaplayers/koth/holdlost.mp3", true, true, false, "The sound that plays when a KOTH point has become neutral.", 0, 1, { name = "Sound - On Point Neutral", type = "Text", category = LTS_CAT_KOTH_AD } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_koth_snd_onpointrestored", "lambdaplayers/koth/holdrestored.mp3", true, true, false, "The sound that plays when your team's KOTH point is reclaimed back from neutral.", 0, 1, { name = "Sound - On Point Reclaim", type = "Text", category = LTS_CAT_KOTH_AD } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_koth_snd_onpointlost", "lambdaplayers/koth/loss.mp3", true, true, false, "The sound that plays when your team's KOTH point is lost.", 0, 1, { name = "Sound - On Point Lost", type = "Text", category = LTS_CAT_KOTH_AD } )
 
 --
 
-CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_returntime", 15, true, false, false, "The time Lambda Flag can be in dropped state before returning to its capture zone.", 0, 120, { name = "Time Before Returning", type = "Slider", decimals = 0, category = "Team System - CTF" } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_returntime", 15, true, false, false, "The time Lambda Flag can be in dropped state before returning to its capture zone.", 0, 120, { name = "Time Before Returning", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
 
-local ctfBotObjective = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_botobjective", 1, true, false, false, "If Lambda Players should actively play the Objective.", 0, 1, { name = "Lambdas Play Objective", type = "Bool", category = "Team System - CTF" } )
-local ctfBotObjectiveInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_botobjective_incombat", 0, true, false, false,  "If Lambdas Players should seek out flags during combat.", 0, 1, { name = "Seek Objective In Combat", type = "Bool", category = "Team System - CTF" } )
-local ctfMinDefenders = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_min_defenders", 1, true, false, false, "How many (at least) Lambda Players per team that will prefer defending over attacking when their flag is at home.", 0, 16, { name = "Defender Count", type = "Slider", decimals = 0, category = "Team System - CTF" } )
+local ctfBotObjective = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_botobjective", 1, true, false, false, "If Lambda Players should actively play the Objective.", 0, 1, { name = "Lambdas Play Objective", type = "Bool", category = LTS_CAT_CTF } )
+local ctfBotObjectiveInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_botobjective_incombat", 0, true, false, false,  "If Lambdas Players should seek out flags during combat.", 0, 1, { name = "Seek Objective In Combat", type = "Bool", category = LTS_CAT_CTF } )
+local ctfMinDefenders = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_min_defenders", 1, true, false, false, "How many (at least) Lambda Players per team that will prefer defending over attacking when their flag is at home.", 0, 16, { name = "Defender Count", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
 
-local ctfRole_DefendWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_role_defend", 35, true, false, false, "How persistent should flag defenders be.", 0, 100, { name = "Defender Commitment", type = "Slider", decimals = 0, category = "Team System - CTF" } )
-local ctfRole_AttackWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_role_attack", 45, true, false, false, "How persistent should attackers be.", 0, 100, { name = "Attacker Commitment", type = "Slider", decimals = 0, category = "Team System - CTF" } )
-local ctfRole_EscortWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_role_escort", 10, true, false, false, "How persistent should flag escorters be.", 0, 100, { name = "Escort Commitment", type = "Slider", decimals = 0, category = "Team System - CTF" } )
-local ctfRole_HuntWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_role_hunt", 10, true, false, false, "How persistent should player hunters be.", 0, 100, { name = "Hunter Commitment", type = "Slider", decimals = 0, category = "Team System - CTF" } )
-local ctfBotObjectiveRange = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_botobjective_range", 9000, true, false, false, "Max distance Lambdas will seek out flags.", 0, 10000, { name = "Objective Consider Range", type = "Slider", decimals = 0, category = "Team System - CTF" } )
+local ctfRole_DefendWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_role_defend", 35, true, false, false, "How persistent should flag defenders be.", 0, 100, { name = "Defender Commitment", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
+local ctfRole_AttackWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_role_attack", 45, true, false, false, "How persistent should attackers be.", 0, 100, { name = "Attacker Commitment", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
+local ctfRole_EscortWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_role_escort", 10, true, false, false, "How persistent should flag escorters be.", 0, 100, { name = "Escort Commitment", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
+local ctfRole_HuntWeight = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_role_hunt", 10, true, false, false, "How persistent should player hunters be.", 0, 100, { name = "Hunter Commitment", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
+local ctfBotObjectiveRange = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_botobjective_range", 9000, true, false, false, "Max distance Lambdas will seek out flags.", 0, 10000, { name = "Objective Consider Range", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
 
-local ctfDefendBoostWhenFlagTaken = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_defend_boost_taken", 35, true, false, false, "How vigilant (aggressive) should flag defenders be when the flag is not at home (higher values can cause the gamemode to be very difficult).", 0, 200, { name = "Defense Aggro When Flag Taken", type = "Slider", decimals = 0, category = "Team System - CTF" } )
-local ctfIconDrawVisible = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_icon_alwaysdraw", 0, true, true, false, "If the icon should always be drawn no matter if it's visible.", 0, 1, { name = "Always Draw Icon", type = "Bool", category = "Team System - CTF" } )
-local ctfIconEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_icon_enabled", 1, true, true, false, "If your team's dropped flag or enemy flag carried by your teammate should have a icon drawn on them.", 0, 1, { name = "Enable Icons", type = "Bool", category = "Team System - CTF" } )
+local ctfDefendBoostWhenFlagTaken = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_defend_boost_taken", 35, true, false, false, "How vigilant (aggressive) should flag defenders be when the flag is not at home (higher values can cause the gamemode to be very difficult).", 0, 200, { name = "Defense Aggro When Flag Taken", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
+local ctfIconDrawVisible = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_icon_alwaysdraw", 0, true, true, false, "If the icon should always be drawn no matter if it's visible.", 0, 1, { name = "Always Draw Icon", type = "Bool", category = LTS_CAT_CTF } )
+local ctfIconEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_icon_enabled", 1, true, true, false, "If your team's dropped flag or enemy flag carried by your teammate should have a icon drawn on them.", 0, 1, { name = "Enable Icons", type = "Bool", category = LTS_CAT_CTF } )
 
-local ctfIconFadeStartDist = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_icon_fadeinstartdist", 2000, true, true, false, "How far you should be from the icon for it to completely fade out of view.", 0, 4096, { name = "Icon Fade In Start", type = "Slider", decimals = 0, category = "Team System - CTF" } )
-local ctfIconFadeEndDist = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_icon_fadeinenddist", 500, true, true, false, "How close you should be from the icon for it to become fully visible.", 0, 4096, { name = "Icon Fade In End", type = "Slider", decimals = 0, category = "Team System - CTF" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_onpickup_enemy", "lambdaplayers/ctf/flagsteal.mp3", true, true, false, "The sound that plays when your team picks up enemy team's CTF Flag.", 0, 1, { name = "Sound - On Enemy Flag Pickup", type = "Text", category = "Team System - CTF" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_onpickup_ally", "lambdaplayers/ctf/ourflagstole.mp3", true, true, false, "The sound that plays when enemy team picks up your team's CTF Flag.", 0, 1, { name = "Sound - On Ally Flag Pickup", type = "Text", category = "Team System - CTF" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_oncapture_ally", "lambdaplayers/ctf/flagcapture.mp3", true, true, false, "The sound that plays when your team has captured enemy team's CTF Flag.", 0, 1, { name = "Sound - On Enemy Flag Capture", type = "Text", category = "Team System - CTF" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_oncapture_enemy", "lambdaplayers/ctf/ourflagcaptured.mp3", true, true, false, "The sound that plays when enemy team has captured your team's CTF Flag.", 0, 1, { name = "Sound - On Ally Flag Capture", type = "Text", category = "Team System - CTF" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_ondrop", "lambdaplayers/ctf/flagdropped.mp3", true, true, false, "The sound that plays when the CTF Flag is dropped.", 0, 1, { name = "Sound - On Flag Drop", type = "Text", category = "Team System - CTF" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_onreturn", "lambdaplayers/ctf/flagreturn.mp3", true, true, false, "The sound that plays when the CTF Flag has returned to its base.", 0, 1, { name = "Sound - On Flag Return", type = "Text", category = "Team System - CTF" } )
-
----
-
-local tdmFFAMode = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_ffa", 0, true, false, false, "If enabled, Team Deathmatch becomes Free For All and everybody scores individually (YOU NEED TO ENABLE FRIENDLY FIRE TO ATTACK TEAMATES).", 0, 1, { name = "Free For All", type = "Bool", category = "Team System - TDM" } )
-local tdmElimination = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_elimination", 0, true, false, false, "If enabled, Team Deathmatch becomes elimination and dead players stay out until the match ends.", 0, 1, { name = "Elimination Mode", type = "Bool", category = "Team System - TDM" } )
-local tdmRespawnDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_respawndelay", 3.0, true, false, false, "How long TDM should wait before a dead combatant is allowed to respawn. Ignored by elimination mode.", 0.0, 30.0, { name = "Respawn Delay", type = "Slider", decimals = 1, category = "Team System - TDM" } )
-local tdmOvertime = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_overtime", 1, true, false, false, "If enabled, tied TDM matches enter overtime instead of ending immediately on time limit.", 0, 1, { name = "Enable Overtime", type = "Bool", category = "Team System - TDM" } )
-local tdmKillstreaks = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreaks", 1, true, false, false, "If enabled, Lambda Players & Human Players can earn bonuses after a certain amount of kills (TESTED ONLY ON TEAM DEATHMATCH & WITHOUT GAMEMODE CHANGING CONVARS).", 0, 1, { name = "Enable Killstreaks", type = "Bool", category = "Team System - TDM" } )
-local tdmKillstreakArmor = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreak_5_armor", 35, true, false, false, "How much armor a player gets on a 5 kill streak.", 0, 500, { name = "5 Killstreak Armor Bonus", type = "Slider", decimals = 0, category = "Team System - TDM" } )
-local tdmKillstreakDoubleTime = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreak_7_doublepoints_time", 20, true, false, false, "How long 7 kill streak double points lasts.", 1, 120, { name = "7 Killstreak Double Points Time", type = "Slider", decimals = 0, category = "Team System - TDM" } )
-local tdmFFAUniqueColors = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_ffa_uniquecolors", 1, true, false, false, "If enabled, Free For All gives every competitor a unique color for HUD/halos/model tinting.", 0, 1, { name = "FFA Unique Colors", type = "Bool", category = "Team System - TDM" } )
-local tdmUAVRevealTime = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreak_3_uav_time", 12, true, false, false, "How long the 3 kill streak UAV reveals enemies for.", 1, 60, { name = "3 Killstreak UAV Time", type = "Slider", decimals = 0, category = "Team System - TDM" } )
-local tdmFirstBlood = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_firstblood", 1, true, false, false, "If enabled, the first valid TDM kill triggers a First Blood announcement.", 0, 1, { name = "Enable First Blood", type = "Bool", category = "Team System - TDM" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_killstreak_3", "", true, true, false, "Sound that plays when someone reaches a 3 kill streak.", 0, 1, { name = "Sound - 3 Killstreak", type = "Text", category = "Team System - TDM" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_killstreak_5", "", true, true, false, "Sound that plays when someone reaches a 5 kill streak.", 0, 1, { name = "Sound - 5 Killstreak", type = "Text", category = "Team System - TDM" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_killstreak_7", "", true, true, false, "Sound that plays when someone reaches a 7 kill streak.", 0, 1, { name = "Sound - 7 Killstreak", type = "Text", category = "Team System - TDM" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_firstblood", "", true, true, false, "The sound that plays when First Blood happens in TDM.", 0, 1, { name = "Sound - First Blood", type = "Text", category = "Team System - TDM" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_5killsleft", "", true, true, false, "The sound that plays when there are only 5 kills left to win.", 0, 1, { name = "Sound - 5 Kills Left", type = "Text", category = "Team System - TDM" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_10killsleft", "lambdaplayers/tdm/10killsleft.mp3", true, true, false, "The sound that plays when there are only 10 kills left to win.", 0, 1, { name = "Sound - 10 Kills Left", type = "Text", category = "Team System - TDM" } )
+local ctfIconFadeStartDist = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_icon_fadeinstartdist", 2000, true, true, false, "How far you should be from the icon for it to completely fade out of view.", 0, 4096, { name = "Icon Fade In Start", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
+local ctfIconFadeEndDist = CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_icon_fadeinenddist", 500, true, true, false, "How close you should be from the icon for it to become fully visible.", 0, 4096, { name = "Icon Fade In End", type = "Slider", decimals = 0, category = LTS_CAT_CTF } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_onpickup_enemy", "lambdaplayers/ctf/flagsteal.mp3", true, true, false, "The sound that plays when your team picks up enemy team's CTF Flag.", 0, 1, { name = "Sound - On Enemy Flag Pickup", type = "Text", category = LTS_CAT_CTF } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_onpickup_ally", "lambdaplayers/ctf/ourflagstole.mp3", true, true, false, "The sound that plays when enemy team picks up your team's CTF Flag.", 0, 1, { name = "Sound - On Ally Flag Pickup", type = "Text", category = LTS_CAT_CTF } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_oncapture_ally", "lambdaplayers/ctf/flagcapture.mp3", true, true, false, "The sound that plays when your team has captured enemy team's CTF Flag.", 0, 1, { name = "Sound - On Enemy Flag Capture", type = "Text", category = LTS_CAT_CTF } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_oncapture_enemy", "lambdaplayers/ctf/ourflagcaptured.mp3", true, true, false, "The sound that plays when enemy team has captured your team's CTF Flag.", 0, 1, { name = "Sound - On Ally Flag Capture", type = "Text", category = LTS_CAT_CTF } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_ondrop", "lambdaplayers/ctf/flagdropped.mp3", true, true, false, "The sound that plays when the CTF Flag is dropped.", 0, 1, { name = "Sound - On Flag Drop", type = "Text", category = LTS_CAT_CTF } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_ctf_snd_onreturn", "lambdaplayers/ctf/flagreturn.mp3", true, true, false, "The sound that plays when the CTF Flag has returned to its base.", 0, 1, { name = "Sound - On Flag Return", type = "Text", category = LTS_CAT_CTF } )
 
 ---
 
-local kdPickupEnableDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_pickupenable_delay", 0.25, true, false, false, "Delay before newly dropped KD tags can be collected.", 0.0, 3.0, { name = "Pickup Enable Delay", type = "Slider", decimals = 2, category = "Team System - KD" } )
-local kdRemoveTime = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_removetime", 20, true, false, false, "For how much time the pickups can be dropped before they disappear?", 1, 120, { name = "Pickup Remove Time", type = "Slider", decimals = 0, category = "Team System - KD" } )
-local kdCustomMdl = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_custommodel", "", true, false, false, "Custom model that will be set for the pickup. Leave empty to use default skull model.", 0, 1, { name = "Pickup Custom Model", type = "Text", category = "Team System - KD" } )
-local kdUsePoints = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_usekothpoints", 0, true, false, false, "If enabled, tags will need to be dropped off at a KOTH point before team points are given (A KOTH POINT IS REQUIRED).", 0, 1, { name = "Pickups Use KOTH Points", type = "Bool", category = "Team System - KD" } )
-local kdPickupSounds = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_pickupsounds", 1, true, true, false, "If enabled, KD confirm/deny sounds will play.", 0, 1, { name = "Enable Confirm/Deny Sounds", type = "Bool", category = "Team System - KD" } )
-local kdDrawWorldText = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_worldtext", 1, true, true, false, "If enabled, KD tags will draw confirm/deny world text.", 0, 1, { name = "Draw Confirm/Deny World Text", type = "Bool", category = "Team System - KD" } )
-local kdWorldTextDist = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_worldtextdist", 1500, true, true, false, "Max distance to draw KD tag world text.", 200, 8000, { name = "World Text Max Distance", type = "Slider", decimals = 0, category = "Team System - KD" } )
-local kdDrawHalo = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_halo", 1, true, true, false, "If enabled, KD tags will get a halo highlight.", 0, 1, { name = "Highlight Tags (Halo)", type = "Bool", category = "Team System - KD" } )
-local kdLambdaSeekTags = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek", 1, true, false, false, "If enabled, Lambdas will seek out Kill Confirm tags (I recommend enabling this to keep Lambda Players on objective).", 0, 1, { name = "Should Lambda Players Collect KD Tags", type = "Bool", category = "Team System - KD" } )
-local kdLambdaSeekEnemyOnly = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek_enemyonly", 0, true, false, false, "If enabled, Lambdas will only try to seek enemy tags & will try to avoid collecting friendly tags.", 0, 1, { name = "Only Seek Enemy Tags", type = "Bool", category = "Team System - KD" } )
-local kdLambdaSeekRange = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek_range", 2500, true, false, false, "How far Lambdas should look for KD tags (Changing the distance to higher values effects performance minimally).", 250, 10000, { name = "Find Distance", type = "Slider", decimals = 0, category = "Team System - KD" } )
-local kdLambdaSeekInterval = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek_interval", 0.25, true, false, false, "How often Lambdas will look for KD tags (Lower = constant rescanning & degraded performance, Higher = better performance)", 0.05, 2.0, { name = "KD Tag Seeking Interval", type = "Slider", decimals = 2, category = "Team System - KD" } )
-local kdLambdaSeekInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek_incombat", 0, true, false, false, "If enabled, Lambdas can pursue tags even while in combat.", 0, 1, { name = "Collect Tags During Combat", type = "Bool", category = "Team System - KD" } )
-local kdSndConfirm = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_snd_confirm", "buttons/button17.wav", true, true, false, "The sound thats played to the collector's TEAM when an enemy tag is CONFIRMED.", 0, 1, { name = "Sound - Confirm", type = "Text", category = "Team System - KD" } )
-local kdSndDeny = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_snd_deny", "buttons/button10.wav", true, true, false, "The sound thats played to the collector's TEAM when a friendly tag is DENIED.", 0, 1, { name = "Sound - Deny", type = "Text", category = "Team System - KD" } )
+local tdmFFAMode = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_ffa", 0, true, false, false, "If enabled, Team Deathmatch becomes Free For All and everybody scores individually (YOU NEED TO ENABLE FRIENDLY FIRE TO ATTACK TEAMATES).", 0, 1, { name = "Free For All", type = "Bool", category = LTS_CAT_TDM } )
+local tdmElimination = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_elimination", 0, true, false, false, "If enabled, Team Deathmatch becomes elimination and dead players stay out until the match ends.", 0, 1, { name = "Elimination Mode", type = "Bool", category = LTS_CAT_TDM } )
+local tdmRespawnDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_respawndelay", 3.0, true, false, false, "How long TDM should wait before a dead combatant is allowed to respawn. Ignored by elimination mode.", 0.0, 30.0, { name = "Respawn Delay", type = "Slider", decimals = 1, category = LTS_CAT_TDM } )
+local tdmOvertime = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_overtime", 1, true, false, false, "If enabled, tied TDM matches enter overtime instead of ending immediately on time limit.", 0, 1, { name = "Enable Overtime", type = "Bool", category = LTS_CAT_TDM } )
+local tdmKillstreaks = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreaks", 1, true, false, false, "If enabled, Lambda Players & Human Players can earn bonuses after a certain amount of kills (TESTED ONLY ON TEAM DEATHMATCH & WITHOUT GAMEMODE CHANGING CONVARS).", 0, 1, { name = "Enable Killstreaks", type = "Bool", category = LTS_CAT_TDM } )
+local tdmKillstreakArmor = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreak_5_armor", 35, true, false, false, "How much armor a player gets on a 5 kill streak.", 0, 500, { name = "5 Killstreak Armor Bonus", type = "Slider", decimals = 0, category = LTS_CAT_TDM } )
+local tdmKillstreakDoubleTime = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreak_7_doublepoints_time", 20, true, false, false, "How long 7 kill streak double points lasts.", 1, 120, { name = "7 Killstreak Double Points Time", type = "Slider", decimals = 0, category = LTS_CAT_TDM } )
+local tdmFFAUniqueColors = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_ffa_uniquecolors", 1, true, false, false, "If enabled, Free For All gives every competitor a unique color for HUD/halos/model tinting.", 0, 1, { name = "FFA Unique Colors", type = "Bool", category = LTS_CAT_TDM } )
+local tdmUAVRevealTime = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_killstreak_3_uav_time", 12, true, false, false, "How long the 3 kill streak UAV reveals enemies for.", 1, 60, { name = "3 Killstreak UAV Time", type = "Slider", decimals = 0, category = LTS_CAT_TDM } )
+local tdmFirstBlood = CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_firstblood", 1, true, false, false, "If enabled, the first valid TDM kill triggers a First Blood announcement.", 0, 1, { name = "Enable First Blood", type = "Bool", category = LTS_CAT_TDM } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_killstreak_3", "", true, true, false, "Sound that plays when someone reaches a 3 kill streak.", 0, 1, { name = "Sound - 3 Killstreak", type = "Text", category = LTS_CAT_TDM } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_killstreak_5", "", true, true, false, "Sound that plays when someone reaches a 5 kill streak.", 0, 1, { name = "Sound - 5 Killstreak", type = "Text", category = LTS_CAT_TDM } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_killstreak_7", "", true, true, false, "Sound that plays when someone reaches a 7 kill streak.", 0, 1, { name = "Sound - 7 Killstreak", type = "Text", category = LTS_CAT_TDM } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_firstblood", "", true, true, false, "The sound that plays when First Blood happens in TDM.", 0, 1, { name = "Sound - First Blood", type = "Text", category = LTS_CAT_TDM } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_5killsleft", "", true, true, false, "The sound that plays when there are only 5 kills left to win.", 0, 1, { name = "Sound - 5 Kills Left", type = "Text", category = LTS_CAT_TDM } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_tdm_snd_10killsleft", "lambdaplayers/tdm/10killsleft.mp3", true, true, false, "The sound that plays when there are only 10 kills left to win.", 0, 1, { name = "Sound - 10 Kills Left", type = "Text", category = LTS_CAT_TDM } )
 
-local assaultRequireTwoTeams = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_requiretwoteams", 1, true, false, false, "If enabled, Assault can only run with exactly 2 active teams.", 0, 1, { name = "Require Exactly 2 Teams", type = "Bool", category = "Team System - Assault" } )
-local assaultAttackingTeam = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_attackteam", "", true, false, false, "Which team is the attacking team in Assault.", 0, 1, { name = "Attacking Team", type = "Combo", options = LambdaTeams.TeamOptions, category = "Team System - Assault" } )
-local assaultDefendingTeam = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_defendteam", "", true, false, false, "Which team is the defending team in Assault.", 0, 1, { name = "Defending Team", type = "Combo", options = LambdaTeams.TeamOptions, category = "Team System - Assault" } )
-local assaultDefensiveRoles = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_defensiveroles", 1, true, false, false, "If enabled, some Lambdas on the defending team will play defensively.", 0, 1, { name = "Enable Defensive Roles", type = "Bool", category = "Team System - Assault" } )
-local assaultStartOwned = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_startowned", 1, true, false, false, "If enabled, all Assault points start owned by the defending team (I recommend you enable this to avoid the gamemode from deviating from its original purpose).", 0, 1, { name = "Defenders Own Sectors On Start", type = "Bool", category = "Team System - Assault" } )
-local assaultAutoOrder = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_autoorder", 0, true, false, false, "If enabled, Assault automatically determines point order from the placed points. Disable this to use the manual point order list.", 0, 1, { name = "Automatic Point Order", type = "Bool", category = "Team System - Assault" } )
-local assaultPointOrder = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_pointorder", "", true, false, false, "(Comma-separated) Assault point names in the exact order they should be captured when auto order is disabled (EXACT POINT NAMES REQUIRED).", 0, 1, { name = "Point Order", type = "Text", category = "Team System - Assault" } )
-local assaultIconEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_icon_enabled", 1, true, true, false, "If enabled, you can see Assault objective markers.", 0, 1, { name = "Enable Objective Icons", type = "Bool", category = "Team System - Assault" } )
-local assaultIconDrawVisible = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_icon_alwaysdraw", 0, true, true, false, "If enabled, Assault objective icons are drawn even when the point is not visible.", 0, 1, { name = "Persistent Icons", type = "Bool", category = "Team System - Assault" } )
-local assaultDrawHalo = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_halo", 1, true, true, false, "If enabled, the current Assault objective gets a halo highlight.", 0, 1, { name = "Highlight Objective", type = "Bool", category = "Team System - Assault" } )
-local assaultIconFadeStartDist = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_icon_fadeinstartdist", 2500, true, true, false, "How far you should be from Assault objective icons for them to start fading out.", 0, 10000, { name = "Icon Fade In Start", type = "Slider", decimals = 0, category = "Team System - Assault" } )
-local assaultIconFadeEndDist = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_icon_fadeinenddist", 700, true, true, false, "How close you should be from Assault objective icons for them to become fully visible.", 0, 10000, { name = "Icon Fade In End", type = "Slider", decimals = 0, category = "Team System - Assault" } )
-local assaultDrawWorldText = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_worldtext", 1, true, true, false, "If enabled, the current Assault objective draws text in the world for you.", 0, 1, { name = "Draw Objective Text", type = "Bool", category = "Team System - Assault" } )
-local assaultWorldTextDist = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_worldtextdist", 3500, true, true, false, "Max distance at which Assault objective text is drawn. Set to 0 to disable the distance limit.", 0, 12000, { name = "Objective Text Max Distance", type = "Slider", decimals = 0, category = "Team System - Assault" } )
-local assaultCapRate = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_capturerate", 0.2, true, false, false, "The speed rate of capturing Assault points.", 0.01, 5.0, { name = "Capture Rate", type = "Slider", decimals = 2, category = "Team System - Assault" } )
-local assaultCapRange = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_capturerange", 500, true, false, false, "How close players should be to start capturing an Assault point.", 100, 2000, { name = "Capture Range", type = "Slider", decimals = 0, category = "Team System - Assault" } )
+---
 
-local salvageBankRange = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_bankrange", 250, true, false, false, "How close a salvage carrier must be to a friendly bank point to deposit their carried salvage.", 50, 1000, { name = "Bank Range", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-local salvageLoseOnDeath = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_loseondeath", 1, true, false, false, "If enabled, carried salvage is lost when the carrier dies.", 0, 1, { name = "Lose Carry On Death", type = "Bool", category = "Team System - Salvage Run" } )
-local salvageBankFirstCapture = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_bankfirstcapture", 0, true, false, false, "If enabled, Lambdas will try to secure one bank before focusing on salvage pickups.", 0, 1, { name = "Prioritize Capturing A Bank", type = "Bool", category = "Team System - Salvage Run" } )
-local salvageBankInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_bank_incombat", 0, true, false, false, "If enabled, Lambdas can bank salvage while in combat.", 0, 1, { name = "Bank In Combat", type = "Bool", category = "Team System - Salvage Run" } )
-local salvageGuardBanks = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_guardbanks", 0, true, false, false, "If enabled, some Lambdas will guard friendly banks instead of only chasing salvage.", 0, 1, { name = "Guard Friendly Banks", type = "Bool", category = "Team System - Salvage Run" } )
-local salvagePickupEnableDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_pickupenable_delay", 0.25, true, false, false, "Delay before newly dropped salvage can be collected.", 0.0, 3.0, { name = "Pickup Enable Delay", type = "Slider", decimals = 2, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_dropcarryondeath", 0, true, false, false, "If enabled, carried salvage is dropped on death instead of being deleted.", 0, 1, { name = "Drop Carry On Death", type = "Bool", category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_enabled", 0, true, false, false, "If enabled, if a Salvage Generator entity is spawned, it can manually produce salvage during the Salvage Run gamemode.", 0, 1, { name = "Enable Salvage Generator", type = "Bool", category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_userange", 140, true, false, false, "How close players must be to operate a Salvage Generator.", 50, 400, { name = "Generator Use Range", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_lambdatime", 2.5, true, false, false, "How long Lambdas must stay near the generator before it produces salvage.", 0.5, 15.0, { name = "Lambda Generator Time", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_humantime", 2.0, true, false, false, "How long humans must hold +USE on the generator before it produces salvage.", 0.5, 15.0, { name = "Human Generator Time", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_cooldown", 4.0, true, false, false, "Cooldown between Salvage Generator outputs.", 0.0, 30.0, { name = "Generator Cooldown", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_yield", 2, true, false, false, "How much salvage each generator cycle produces.", 1, 12, { name = "Generator Yield", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_randomizedrops", 0, true, false, false, "If enabled, killed players drop a randomized amount of salvage tags.", 0, 1, { name = "Randomize Death Drops", type = "Bool", category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_min", 1, true, false, false, "Minimum randomized salvage tags dropped on death.", 1, 20, { name = "Salvage Drop Min", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_max", 3, true, false, false, "Maximum randomized salvage tags dropped on death.", 1, 20, { name = "Salvage Drop Max", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols", 0, true, false, false, "If enabled, the Combine will spawn & patrol Banks + Generators during the Salvage Run gamemode (This turns the gamemode into PVPVE, use the Team Alliances feature to turn it into PVE).", 0, 1, { name = "Enable Combine Patrols", type = "Bool", category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_interval", 20.0, true, false, false, "How often Combine patrols will attempt to spawn.", 3.0, 120.0, { name = "Patrol Spawn Interval", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_maxalive", 5, true, false, false, "Maximum amount of alive Combine patrol NPCs spawned by Salvage Run.", 1, 30, { name = "Patrol Max Alive", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_nearhuman", 0, true, false, false, "If enabled, patrols only spawn when at least one human player is near a generator or bank.", 0, 1, { name = "Only Spawn Near Humans", type = "Bool", category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_humanrange", 1400, true, false, false, "How close a human player must be to a generator or bank for patrol spawning to be allowed.", 200, 6000, { name = "Human Nearby Range", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation", 0, true, false, false, "If enabled, heavy Combine casualties escalate into Strider/Gunship support for a short time.", 0, 1, { name = "Enable Combine Escalation", type = "Bool", category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation_kills", 6, true, false, false, "How many Combine Soldier deaths are needed to trigger escalation.", 1, 30, { name = "Escalation Kill Count", type = "Slider", decimals = 0, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation_window", 20.0, true, false, false, "Time window used when counting Combine casualties for escalation.", 3.0, 120.0, { name = "Escalation Window", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation_duration", 30.0, true, false, false, "How long the escalation state lasts.", 5.0, 180.0, { name = "Escalation Duration", type = "Slider", decimals = 1, category = "Team System - Salvage Run" } )
+local kdPickupEnableDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_pickupenable_delay", 0.25, true, false, false, "Delay before newly dropped KD tags can be collected.", 0.0, 3.0, { name = "Pickup Enable Delay", type = "Slider", decimals = 2, category = LTS_CAT_KD } )
+local kdRemoveTime = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_removetime", 20, true, false, false, "For how much time the pickups can be dropped before they disappear?", 1, 120, { name = "Pickup Remove Time", type = "Slider", decimals = 0, category = LTS_CAT_KD } )
+local kdCustomMdl = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_custommodel", "", true, false, false, "Custom model that will be set for the pickup. Leave empty to use default skull model.", 0, 1, { name = "Pickup Custom Model", type = "Text", category = LTS_CAT_KD } )
+local kdUsePoints = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_usekothpoints", 0, true, false, false, "If enabled, tags will need to be dropped off at a KOTH point before team points are given (A KOTH POINT IS REQUIRED).", 0, 1, { name = "Pickups Use KOTH Points", type = "Bool", category = LTS_CAT_KD } )
+local kdPickupSounds = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_pickupsounds", 1, true, true, false, "If enabled, KD confirm/deny sounds will play.", 0, 1, { name = "Enable Confirm/Deny Sounds", type = "Bool", category = LTS_CAT_KD } )
+local kdDrawWorldText = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_worldtext", 1, true, true, false, "If enabled, KD tags will draw confirm/deny world text.", 0, 1, { name = "Draw Confirm/Deny World Text", type = "Bool", category = LTS_CAT_KD } )
+local kdWorldTextDist = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_worldtextdist", 1500, true, true, false, "Max distance to draw KD tag world text.", 200, 8000, { name = "World Text Max Distance", type = "Slider", decimals = 0, category = LTS_CAT_KD } )
+local kdDrawHalo = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_halo", 1, true, true, false, "If enabled, KD tags will get a halo highlight.", 0, 1, { name = "Highlight Tags (Halo)", type = "Bool", category = LTS_CAT_KD } )
+local kdLambdaSeekTags = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek", 1, true, false, false, "If enabled, Lambdas will seek out Kill Confirm tags (I recommend enabling this to keep Lambda Players on objective).", 0, 1, { name = "Should Lambda Players Collect KD Tags", type = "Bool", category = LTS_CAT_KD } )
+local kdLambdaSeekEnemyOnly = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek_enemyonly", 0, true, false, false, "If enabled, Lambdas will only try to seek enemy tags & will try to avoid collecting friendly tags.", 0, 1, { name = "Only Seek Enemy Tags", type = "Bool", category = LTS_CAT_KD } )
+local kdLambdaSeekRange = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek_range", 2500, true, false, false, "How far Lambdas should look for KD tags (Changing the distance to higher values effects performance minimally).", 250, 10000, { name = "Find Distance", type = "Slider", decimals = 0, category = LTS_CAT_KD } )
+local kdLambdaSeekInterval = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek_interval", 0.25, true, false, false, "How often Lambdas will look for KD tags (Lower = constant rescanning & degraded performance, Higher = better performance)", 0.05, 2.0, { name = "KD Tag Seeking Interval", type = "Slider", decimals = 2, category = LTS_CAT_KD } )
+local kdLambdaSeekInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_lambdaseek_incombat", 0, true, false, false, "If enabled, Lambdas can pursue tags even while in combat.", 0, 1, { name = "Collect Tags During Combat", type = "Bool", category = LTS_CAT_KD } )
+local kdSndConfirm = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_snd_confirm", "buttons/button17.wav", true, true, false, "The sound thats played to the collector's TEAM when an enemy tag is CONFIRMED.", 0, 1, { name = "Sound - Confirm", type = "Text", category = LTS_CAT_KD } )
+local kdSndDeny = CreateLambdaConvar( "lambdaplayers_teamsystem_kd_snd_deny", "buttons/button10.wav", true, true, false, "The sound thats played to the collector's TEAM when a friendly tag is DENIED.", 0, 1, { name = "Sound - Deny", type = "Text", category = LTS_CAT_KD } )
 
-local sabotagePlantTime = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_planttime", 3.0, true, false, false, "How long it takes to arm an enemy bomb site.", 0.5, 15.0, { name = "Plant Time", type = "Slider", decimals = 1, category = "Team System - Sabotage" } )
-local sabotageAbsorbLosers = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_absorblosers", 1, true, false, false, "If enabled, teams that lose their site become friendly to a surviving team.", 0, 1, { name = "Absorb Destroyed Teams", type = "Bool", category = "Team System - Sabotage" } )
-local sabotageDefuseEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_defuseenabled", 1, true, false, false, "If enabled, armed sabotage sites can be defused by the owning team.", 0, 1, { name = "Enable Defusing", type = "Bool", category = "Team System - Sabotage" } )
-local sabotageDetonateTime = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_detonatetime", 10.0, true, false, false, "How long after a site is armed before it detonates.", 1.0, 60.0, { name = "Detonation Time", type = "Slider", decimals = 1, category = "Team System - Sabotage" } )
-local sabotageDefuseTime = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_defusetime", 4.0, true, false, false, "How long it takes to defuse an armed sabotage site.", 0.5, 15.0, { name = "Defuse Time", type = "Slider", decimals = 1, category = "Team System - Sabotage" } )
-local sabotageUseRange = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_userange", 140, true, false, false, "How close human players must be to arm or defuse a sabotage site while holding USE.", 50, 400, { name = "Interact Range", type = "Slider", decimals = 0, category = "Team System - Sabotage" } )
+local assaultRequireTwoTeams = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_requiretwoteams", 1, true, false, false, "If enabled, Assault can only run with exactly 2 active teams.", 0, 1, { name = "Require Exactly 2 Teams", type = "Bool", category = LTS_CAT_ASSAULT } )
+local assaultAttackingTeam = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_attackteam", "", true, false, false, "Which team is the attacking team in Assault.", 0, 1, { name = "Attacking Team", type = "Combo", options = LambdaTeams.TeamOptions, category = LTS_CAT_ASSAULT } )
+local assaultDefendingTeam = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_defendteam", "", true, false, false, "Which team is the defending team in Assault.", 0, 1, { name = "Defending Team", type = "Combo", options = LambdaTeams.TeamOptions, category = LTS_CAT_ASSAULT } )
+local assaultDefensiveRoles = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_defensiveroles", 1, true, false, false, "If enabled, some Lambdas on the defending team will play defensively.", 0, 1, { name = "Enable Defensive Roles", type = "Bool", category = LTS_CAT_ASSAULT } )
+local assaultStartOwned = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_startowned", 1, true, false, false, "If enabled, all Assault points start owned by the defending team (I recommend you enable this to avoid the gamemode from deviating from its original purpose).", 0, 1, { name = "Defenders Own Sectors On Start", type = "Bool", category = LTS_CAT_ASSAULT } )
+local assaultAutoOrder = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_autoorder", 0, true, false, false, "If enabled, Assault automatically determines point order from the placed points. Disable this to use the manual point order list.", 0, 1, { name = "Automatic Point Order", type = "Bool", category = LTS_CAT_ASSAULT } )
+local assaultPointOrder = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_pointorder", "", true, false, false, "(Comma-separated) Assault point names in the exact order they should be captured when auto order is disabled (EXACT POINT NAMES REQUIRED).", 0, 1, { name = "Point Order", type = "Text", category = LTS_CAT_ASSAULT } )
+local assaultIconEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_icon_enabled", 1, true, true, false, "If enabled, you can see Assault objective markers.", 0, 1, { name = "Enable Objective Icons", type = "Bool", category = LTS_CAT_ASSAULT } )
+local assaultIconDrawVisible = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_icon_alwaysdraw", 0, true, true, false, "If enabled, Assault objective icons are drawn even when the point is not visible.", 0, 1, { name = "Persistent Icons", type = "Bool", category = LTS_CAT_ASSAULT } )
+local assaultDrawHalo = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_halo", 1, true, true, false, "If enabled, the current Assault objective gets a halo highlight.", 0, 1, { name = "Highlight Objective", type = "Bool", category = LTS_CAT_ASSAULT } )
+local assaultIconFadeStartDist = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_icon_fadeinstartdist", 2500, true, true, false, "How far you should be from Assault objective icons for them to start fading out.", 0, 10000, { name = "Icon Fade In Start", type = "Slider", decimals = 0, category = LTS_CAT_ASSAULT } )
+local assaultIconFadeEndDist = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_icon_fadeinenddist", 700, true, true, false, "How close you should be from Assault objective icons for them to become fully visible.", 0, 10000, { name = "Icon Fade In End", type = "Slider", decimals = 0, category = LTS_CAT_ASSAULT } )
+local assaultDrawWorldText = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_worldtext", 1, true, true, false, "If enabled, the current Assault objective draws text in the world for you.", 0, 1, { name = "Draw Objective Text", type = "Bool", category = LTS_CAT_ASSAULT } )
+local assaultWorldTextDist = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_worldtextdist", 3500, true, true, false, "Max distance at which Assault objective text is drawn. Set to 0 to disable the distance limit.", 0, 12000, { name = "Objective Text Max Distance", type = "Slider", decimals = 0, category = LTS_CAT_ASSAULT } )
+local assaultCapRate = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_capturerate", 0.2, true, false, false, "The speed rate of capturing Assault points.", 0.01, 5.0, { name = "Capture Rate", type = "Slider", decimals = 2, category = LTS_CAT_ASSAULT } )
+local assaultCapRange = CreateLambdaConvar( "lambdaplayers_teamsystem_assault_capturerange", 500, true, false, false, "How close players should be to start capturing an Assault point.", 100, 2000, { name = "Capture Range", type = "Slider", decimals = 0, category = LTS_CAT_ASSAULT } )
 
-local hqAvoidRepeatLast = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_avoid_repeat_last", 1, true, false, false, "If enabled, HQ selection will try to avoid repeating the previous HQ location (I recommend enabling this if you have multiple HQ locations for the HQ gamemode).", 0, 1, { name = "Avoid Repeating Last Location", type = "Bool", category = "Team System - HQ" } )
-local hqCapRate = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_capturerate", 2.0, true, false, false, "How long it takes for objectives to get captured (higher values means faster capturing speed).", 0.01, 5.0, { name = "Capture Rate", type = "Slider", decimals = 2, category = "Team System - HQ" } )
-local hqCapRange = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_capturerange", 500, true, false, false, "How close player should be to start capturing the HQ objective.", 100, 1000, { name = "Capture Range", type = "Slider", decimals = 0, category = "Team System - HQ" } )
-local hqArmTime = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_armtime", 30, true, false, false, "How long (in seconds) before the HQ objective becomes activated.", 0, 120, { name = "Arm Time", type = "Slider", decimals = 0, category = "Team System - HQ" } )
-local hqDestroyedDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_destroyed_delay", 15, true, false, false, "How long (in seconds) should the game wait after the objective is destroyed before selecting the next location.", 0, 60, { name = "Delay Timer", type = "Slider", decimals = 0, category = "Team System - HQ" } )
-local hqHoldLimit = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_holdlimit", 60, true, false, false, "How long an HQ objective can stay alive for (I recommend anywhere between 30-60 seconds, anything more will make matches significantly longer).", 5, 300, { name = "Hold Time Limit", type = "Slider", decimals = 0, category = "Team System - HQ" } )
-local hqScoreGainTime = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_scoregaintime", 5, true, false, false, "How much time should pass before the HQ objective gives points to the holding team.", 0.1, 60, { name = "Score Gain Time", type = "Slider", decimals = 1, category = "Team System - HQ" } )
-local hqScoreGainAmount = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_scoregainamount", 5, true, false, false, "How many points should be awarded each score tick to the holding team.", 1, 100, { name = "Score Per Tick", type = "Slider", decimals = 0, category = "Team System - HQ" } )
-local hqBotStackPenalty = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_botstackpenalty", 125000, true, false, false, "How committed should Lambda Players be when the HQ objective is active (higher values can make this gamemode challenging).", 0, 500000, { name = "Stacking Penalty", type = "Slider", decimals = 0, category = "Team System - HQ" } )
-local hqBotObjective = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_botobjective", 1, true, false, false, "If Lambda Players should actively play the HQ objective (this is recommended to stop matches from taking forever).", 0, 1, { name = "Lambda Players Play Objective", type = "Bool", category = "Team System - HQ" } )
-local hqBotObjectiveRange = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_botobjective_range", 9000, true, false, false, "Max distance Lambdas will seek out the HQ objective.", 0, 10000, { name = "Objective Detection Range", type = "Slider", decimals = 0, category = "Team System - HQ" } )
-local hqBotObjectiveInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_botobjective_incombat", 0, true, false, false, "If enabled, Lambdas Players will play objectives while in combat.", 0, 1, { name = "Play Objectives In Combat", type = "Bool", category = "Team System - HQ" } )
+local salvageBankRange = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_bankrange", 250, true, false, false, "How close a salvage carrier must be to a friendly bank point to deposit their carried salvage.", 50, 1000, { name = "Bank Range", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN } )
+local salvageLoseOnDeath = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_loseondeath", 1, true, false, false, "If enabled, carried salvage is lost when the carrier dies.", 0, 1, { name = "Lose Carry On Death", type = "Bool", category = LTS_CAT_SALVAGE_RUN } )
+local salvageBankFirstCapture = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_bankfirstcapture", 0, true, false, false, "If enabled, Lambdas will try to secure one bank before focusing on salvage pickups.", 0, 1, { name = "Prioritize Capturing A Bank", type = "Bool", category = LTS_CAT_SALVAGE_RUN } )
+local salvageBankInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_bank_incombat", 0, true, false, false, "If enabled, Lambdas can bank salvage while in combat.", 0, 1, { name = "Bank In Combat", type = "Bool", category = LTS_CAT_SALVAGE_RUN } )
+local salvageGuardBanks = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_guardbanks", 0, true, false, false, "If enabled, some Lambdas will guard friendly banks instead of only chasing salvage.", 0, 1, { name = "Guard Friendly Banks", type = "Bool", category = LTS_CAT_SALVAGE_RUN } )
+local salvagePickupEnableDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_pickupenable_delay", 0.25, true, false, false, "Delay before newly dropped salvage can be collected.", 0.0, 3.0, { name = "Pickup Enable Delay", type = "Slider", decimals = 2, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_dropcarryondeath", 0, true, false, false, "If enabled, carried salvage is dropped on death instead of being deleted.", 0, 1, { name = "Drop Carry On Death", type = "Bool", category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_enabled", 0, true, false, false, "If enabled, if a Salvage Generator entity is spawned, it can manually produce salvage during the Salvage Run gamemode.", 0, 1, { name = "Enable Salvage Generator", type = "Bool", category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_userange", 140, true, false, false, "How close players must be to operate a Salvage Generator.", 50, 400, { name = "Generator Use Range", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_lambdatime", 2.5, true, false, false, "How long Lambdas must stay near the generator before it produces salvage.", 0.5, 15.0, { name = "Lambda Generator Time", type = "Slider", decimals = 1, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_humantime", 2.0, true, false, false, "How long humans must hold +USE on the generator before it produces salvage.", 0.5, 15.0, { name = "Human Generator Time", type = "Slider", decimals = 1, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_cooldown", 4.0, true, false, false, "Cooldown between Salvage Generator outputs.", 0.0, 30.0, { name = "Generator Cooldown", type = "Slider", decimals = 1, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_generator_yield", 2, true, false, false, "How much salvage each generator cycle produces.", 1, 12, { name = "Generator Yield", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_randomizedrops", 0, true, false, false, "If enabled, killed players drop a randomized amount of salvage tags.", 0, 1, { name = "Randomize Death Drops", type = "Bool", category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_min", 1, true, false, false, "Minimum randomized salvage tags dropped on death.", 1, 20, { name = "Salvage Drop Min", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_randomizedrops_max", 3, true, false, false, "Maximum randomized salvage tags dropped on death.", 1, 20, { name = "Salvage Drop Max", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_packages_enabled", 0, true, false, false, "If enabled, Salvage Run automatically spawns destroyable salvage packages around reachable areas of the map.", 0, 1, { name = "Enable Salvage Packages", type = "Bool", category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_packages_maxactive", 6, true, false, false, "Maximum amount of salvage packages that can exist at once.", 0, 32, { name = "Package Max Active", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_packages_respawn", 20.0, true, false, false, "How long before Salvage Run attempts to spawn more packages.", 1.0, 120.0, { name = "Package Respawn Time", type = "Slider", decimals = 1, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_packages_health", 40, true, false, false, "How much health a salvage package has before breaking.", 1, 500, { name = "Package Health", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_packages_yield_min", 1, true, false, false, "Minimum amount of salvage dropped by a package.", 1, 12, { name = "Package Yield Min", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_packages_yield_max", 2, true, false, false, "Maximum amount of salvage dropped by a package.", 1, 12, { name = "Package Yield Max", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols", 0, true, false, false, "If enabled, the Combine will spawn & patrol Banks + Generators during the Salvage Run gamemode (This turns the gamemode into PVPVE, use the Team Alliances feature to turn it into PVE).", 0, 1, { name = "Enable Combine Patrols", type = "Bool", category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_interval", 20.0, true, false, false, "How often Combine patrols will attempt to spawn.", 3.0, 120.0, { name = "Patrol Spawn Interval", type = "Slider", decimals = 1, category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_maxalive", 5, true, false, false, "Maximum amount of alive Combine patrol NPCs spawned by Salvage Run.", 1, 30, { name = "Patrol Max Alive", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_nearhuman", 0, true, false, false, "If enabled, patrols only spawn when at least one human player is near a generator or bank.", 0, 1, { name = "Only Spawn Near Humans", type = "Bool", category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_humanrange", 1400, true, false, false, "How close a human player must be to a generator or bank for patrol spawning to be allowed.", 200, 6000, { name = "Human Nearby Range", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation", 0, true, false, false, "If enabled, heavy Combine casualties escalate into Strider/Gunship support for a short time (WARNING: DO NOT USE IF THE MAP YOU ARE PLAYING ON IS INTERIOR/HAS MULTIPLE WALLS).", 0, 1, { name = "Enable Combine Escalation", type = "Bool", category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation_kills", 6, true, false, false, "How many Combine Soldier deaths are needed to trigger escalation.", 1, 30, { name = "Escalation Kill Count", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation_window", 20.0, true, false, false, "Time window used when counting Combine casualties for escalation.", 3.0, 120.0, { name = "Escalation Window", type = "Slider", decimals = 1, category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combineescalation_duration", 30.0, true, false, false, "How long the escalation state lasts.", 5.0, 180.0, { name = "Escalation Duration", type = "Slider", decimals = 1, category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_smartspawn", 1, true, false, false, "If enabled, Combine patrols try to spawn on clear/reachable positions instead of only using a simple ground trace.", 0, 1, { name = "Smart Patrol Spawning", type = "Bool", category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_stuckfix", 1, true, false, false, "If enabled, Combine patrol NPCs that get stuck will be teleported to a nearby valid position.", 0, 1, { name = "Patrol Stuck Fix", type = "Bool", category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_stucktime", 3.0, true, false, false, "How long a patrol NPC must fail to make progress before it is considered stuck.", 0.5, 15.0, { name = "Patrol Stuck Time", type = "Slider", decimals = 1, category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_stuckmove", 40, true, false, false, "Minimum movement over the stuck time window before a patrol NPC is considered moving normally.", 5, 250, { name = "Patrol Stuck Move Threshold", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_spawnmin", 350, true, false, false, "Minimum distance from an objective when searching for patrol spawn positions.", 100, 4000, { name = "Patrol Spawn Min Distance", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN_AI } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_salvagerun_combinepatrols_spawnmax", 900, true, false, false, "Maximum distance from an objective when searching for patrol spawn positions.", 100, 6000, { name = "Patrol Spawn Max Distance", type = "Slider", decimals = 0, category = LTS_CAT_SALVAGE_RUN_AI } )
 
-local hqIconEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_icon_enabled", 1, true, true, false, "If the active HQ objective should have a HUD marker.", 0, 1, { name = "Enable Icons", type = "Bool", category = "Team System - HQ" } )
-local hqIconDrawVisible = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_icon_alwaysdraw", 0, true, true, false, "If the HQ icon should always be drawn, no matter what (this can look ugly in some places).", 0, 1, { name = "Always Draw Icon", type = "Bool", category = "Team System - HQ" } )
-local hqIconFadeStartDist = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_icon_fadeinstartdist", 2000, true, true, false, "How far you should be from the HQ icon for it to completely fade out of view.", 0, 4096, { name = "Icon Fade In Start", type = "Slider", decimals = 0, category = "Team System - HQ" } )
-local hqIconFadeEndDist = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_icon_fadeinenddist", 500, true, true, false, "How close you should be from the HQ icon for it to become fully visible.", 0, 4096, { name = "Icon Fade In End", type = "Slider", decimals = 0, category = "Team System - HQ" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_onarming", "buttons/button15.wav", true, true, false, "Sound that plays when a new HQ is selected and starts activating.", 0, 1, { name = "Sound - HQ Activating", type = "Text", category = "Team System - HQ" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_onactive", "buttons/button17.wav", true, true, false, "Sound that plays when the HQ goes online.", 0, 1, { name = "Sound - HQ Active", type = "Text", category = "Team System - HQ" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_onsecure_ally", "lambdaplayers/ctf/flagcapture.mp3", true, true, false, "Sound that plays for your team when it captures the HQ.", 0, 1, { name = "Sound - On Ally HQ Secure", type = "Text", category = "Team System - HQ" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_onsecure_enemy", "lambdaplayers/ctf/ourflagcaptured.mp3", true, true, false, "Sound that plays when an enemy team captures the HQ.", 0, 1, { name = "Sound - On Enemy HQ Secure", type = "Text", category = "Team System - HQ" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_ondestroy_ally", "", true, true, false, "Sound that plays for the team that destroys the HQ.", 0, 1, { name = "Sound - On Ally HQ Destroy", type = "Text", category = "Team System - HQ" } )
-CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_ondestroy_enemy", "", true, true, false, "Sound that plays for teams when an enemy destroys the HQ.", 0, 1, { name = "Sound - On Enemy HQ Destroy", type = "Text", category = "Team System - HQ" } )
+local sabotagePlantTime = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_planttime", 3.0, true, false, false, "How long it takes to arm an enemy bomb site.", 0.5, 15.0, { name = "Plant Time", type = "Slider", decimals = 1, category = LTS_CAT_SABOTAGE } )
+local sabotageAbsorbLosers = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_absorblosers", 1, true, false, false, "If enabled, teams that lose their site become friendly to a surviving team.", 0, 1, { name = "Absorb Destroyed Teams", type = "Bool", category = LTS_CAT_SABOTAGE } )
+local sabotageDefuseEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_defuseenabled", 1, true, false, false, "If enabled, armed sabotage sites can be defused by the owning team.", 0, 1, { name = "Enable Defusing", type = "Bool", category = LTS_CAT_SABOTAGE } )
+local sabotageDetonateTime = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_detonatetime", 10.0, true, false, false, "How long after a site is armed before it detonates.", 1.0, 60.0, { name = "Detonation Time", type = "Slider", decimals = 1, category = LTS_CAT_SABOTAGE } )
+local sabotageDefuseTime = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_defusetime", 4.0, true, false, false, "How long it takes to defuse an armed sabotage site.", 0.5, 15.0, { name = "Defuse Time", type = "Slider", decimals = 1, category = LTS_CAT_SABOTAGE } )
+local sabotageUseRange = CreateLambdaConvar( "lambdaplayers_teamsystem_sabotage_userange", 140, true, false, false, "How close human players must be to arm or defuse a sabotage site while holding USE.", 50, 400, { name = "Interact Range", type = "Slider", decimals = 0, category = LTS_CAT_SABOTAGE } )
+
+local hqAvoidRepeatLast = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_avoid_repeat_last", 1, true, false, false, "If enabled, HQ selection will try to avoid repeating the previous HQ location (I recommend enabling this if you have multiple HQ locations for the HQ gamemode).", 0, 1, { name = "Avoid Repeating Last Location", type = "Bool", category = LTS_CAT_HQ } )
+local hqCapRate = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_capturerate", 2.0, true, false, false, "How long it takes for objectives to get captured (higher values means faster capturing speed).", 0.01, 5.0, { name = "Capture Rate", type = "Slider", decimals = 2, category = LTS_CAT_HQ } )
+local hqCapRange = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_capturerange", 500, true, false, false, "How close player should be to start capturing the HQ objective.", 100, 1000, { name = "Capture Range", type = "Slider", decimals = 0, category = LTS_CAT_HQ } )
+local hqArmTime = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_armtime", 30, true, false, false, "How long (in seconds) before the HQ objective becomes activated.", 0, 120, { name = "Arm Time", type = "Slider", decimals = 0, category = LTS_CAT_HQ } )
+local hqDestroyedDelay = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_destroyed_delay", 15, true, false, false, "How long (in seconds) should the game wait after the objective is destroyed before selecting the next location.", 0, 60, { name = "Delay Timer", type = "Slider", decimals = 0, category = LTS_CAT_HQ } )
+local hqHoldLimit = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_holdlimit", 60, true, false, false, "How long an HQ objective can stay alive for (I recommend anywhere between 30-60 seconds, anything more will make matches significantly longer).", 5, 300, { name = "Hold Time Limit", type = "Slider", decimals = 0, category = LTS_CAT_HQ } )
+local hqScoreGainTime = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_scoregaintime", 5, true, false, false, "How much time should pass before the HQ objective gives points to the holding team.", 0.1, 60, { name = "Score Gain Time", type = "Slider", decimals = 1, category = LTS_CAT_HQ } )
+local hqScoreGainAmount = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_scoregainamount", 5, true, false, false, "How many points should be awarded each score tick to the holding team.", 1, 100, { name = "Score Per Tick", type = "Slider", decimals = 0, category = LTS_CAT_HQ } )
+local hqBotStackPenalty = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_botstackpenalty", 125000, true, false, false, "How committed should Lambda Players be when the HQ objective is active (higher values can make this gamemode challenging).", 0, 500000, { name = "Stacking Penalty", type = "Slider", decimals = 0, category = LTS_CAT_HQ } )
+local hqBotObjective = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_botobjective", 1, true, false, false, "If Lambda Players should actively play the HQ objective (this is recommended to stop matches from taking forever).", 0, 1, { name = "Lambda Players Play Objective", type = "Bool", category = LTS_CAT_HQ } )
+local hqBotObjectiveRange = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_botobjective_range", 9000, true, false, false, "Max distance Lambdas will seek out the HQ objective.", 0, 10000, { name = "Objective Detection Range", type = "Slider", decimals = 0, category = LTS_CAT_HQ } )
+local hqBotObjectiveInCombat = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_botobjective_incombat", 0, true, false, false, "If enabled, Lambdas Players will play objectives while in combat.", 0, 1, { name = "Play Objectives In Combat", type = "Bool", category = LTS_CAT_HQ } )
+
+local hqIconEnabled = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_icon_enabled", 1, true, true, false, "If the active HQ objective should have a HUD marker.", 0, 1, { name = "Enable Icons", type = "Bool", category = LTS_CAT_HQ } )
+local hqIconDrawVisible = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_icon_alwaysdraw", 0, true, true, false, "If the HQ icon should always be drawn, no matter what (this can look ugly in some places).", 0, 1, { name = "Always Draw Icon", type = "Bool", category = LTS_CAT_HQ } )
+local hqIconFadeStartDist = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_icon_fadeinstartdist", 2000, true, true, false, "How far you should be from the HQ icon for it to completely fade out of view.", 0, 4096, { name = "Icon Fade In Start", type = "Slider", decimals = 0, category = LTS_CAT_HQ } )
+local hqIconFadeEndDist = CreateLambdaConvar( "lambdaplayers_teamsystem_hq_icon_fadeinenddist", 500, true, true, false, "How close you should be from the HQ icon for it to become fully visible.", 0, 4096, { name = "Icon Fade In End", type = "Slider", decimals = 0, category = LTS_CAT_HQ } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_onarming", "buttons/button15.wav", true, true, false, "Sound that plays when a new HQ is selected and starts activating.", 0, 1, { name = "Sound - HQ Activating", type = "Text", category = LTS_CAT_HQ } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_onactive", "buttons/button17.wav", true, true, false, "Sound that plays when the HQ goes online.", 0, 1, { name = "Sound - HQ Active", type = "Text", category = LTS_CAT_HQ } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_onsecure_ally", "lambdaplayers/ctf/flagcapture.mp3", true, true, false, "Sound that plays for your team when it captures the HQ.", 0, 1, { name = "Sound - On Ally HQ Secure", type = "Text", category = LTS_CAT_HQ } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_onsecure_enemy", "lambdaplayers/ctf/ourflagcaptured.mp3", true, true, false, "Sound that plays when an enemy team captures the HQ.", 0, 1, { name = "Sound - On Enemy HQ Secure", type = "Text", category = LTS_CAT_HQ } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_ondestroy_ally", "", true, true, false, "Sound that plays for the team that destroys the HQ.", 0, 1, { name = "Sound - On Ally HQ Destroy", type = "Text", category = LTS_CAT_HQ } )
+CreateLambdaConvar( "lambdaplayers_teamsystem_hq_snd_ondestroy_enemy", "", true, true, false, "Sound that plays for teams when an enemy destroys the HQ.", 0, 1, { name = "Sound - On Enemy HQ Destroy", type = "Text", category = LTS_CAT_HQ } )
 
 ---
 

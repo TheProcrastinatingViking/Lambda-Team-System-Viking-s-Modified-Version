@@ -132,15 +132,17 @@ if SERVER then
         self:SetContesterTeam( "" )
         self:SetContesterColor( vec_white )
 
-        if !LambdaTeams or !LambdaTeams.GetCurrentGamemodeID or LambdaTeams:GetCurrentGamemodeID() != 6 then
-            self:NextThink( CurTime() + 0.1 )
-            return true
-        end
+		local gmID = ( LambdaTeams and LambdaTeams.GetCurrentGamemodeID and LambdaTeams:GetCurrentGamemodeID() ) or 0
 
-        if !self:GetNW2Bool( "LTS_FrontlineActive", self:GetNWBool( "LTS_FrontlineActive", false ) ) then
-            self:NextThink( CurTime() + 0.05 )
-            return true
-        end
+		if gmID != 1 and gmID != 6 then
+			self:NextThink( CurTime() + 0.1 )
+			return true
+		end
+
+		if gmID == 6 and !self:GetNW2Bool( "LTS_FrontlineActive", self:GetNWBool( "LTS_FrontlineActive", false ) ) then
+			self:NextThink( CurTime() + 0.05 )
+			return true
+		end
 
         local capName = self:GetCapturerName()
 
@@ -203,7 +205,36 @@ if SERVER then
                             capTeamClr:ToColor(), entTeam,
                             ( entTeam != ent:Nick() and " (" .. ent:Nick() .. ")" or "" )
                         )
+						
+						local oldTeam = self.OldCapturer
 
+						if LambdaTeams and LambdaTeams.SendLambdaTextEvent then
+							LambdaTeams:SendLambdaTextEvent( "pointgain", {
+								teamName = entTeam,
+								enemyTeamName = ( oldTeam != "Neutral" and oldTeam or nil ),
+								objectiveName = self:GetPointName(),
+								keyEnt = self,
+								maxSpeakers = 1,
+								chance = 50,
+								filter = function( lambda )
+									return LambdaTeams:GetPlayerTeam( lambda ) == entTeam
+								end
+							} )
+
+							if oldTeam and oldTeam != "" and oldTeam != "Neutral" and oldTeam != entTeam then
+								LambdaTeams:SendLambdaTextEvent( "pointloss", {
+									teamName = oldTeam,
+									enemyTeamName = entTeam,
+									objectiveName = self:GetPointName(),
+									keyEnt = self,
+									maxSpeakers = 1,
+									chance = 40,
+									filter = function( lambda )
+										return LambdaTeams:GetPlayerTeam( lambda ) == oldTeam
+									end
+								} )
+							end
+						end
                         self.OldColor = self:GetCapturerColor()
                     end
                 end

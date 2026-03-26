@@ -9,6 +9,26 @@ ENT.AdminOnly = true
 
 ENT.IsLambdaSalvageGenerator = true
 
+local generatorModels = {
+    "models/props_lab/workspace003.mdl",
+    "models/props_lab/servers.mdl"
+}
+
+local generatorOffsets = {
+	[ "models/props_lab/workspace003.mdl" ] = {
+		panel = Vector( 12, 118, 0 ),
+		output = Vector( 42, 42, 28 )
+	},
+    [ "models/props_lab/servers.mdl" ] = {
+        panel = Vector( 0, 0, 0 ),
+        output = Vector( 36, 0, 28 )
+    }
+}
+
+local function GetGeneratorOffsets( ent )
+    return generatorOffsets[ string.lower( ent:GetModel() or "" ) ] or generatorOffsets[ "models/props_lab/servers.mdl" ]
+end
+
 function ENT:SetupDataTables()
     self:NetworkVar( "Float", 0, "Progress" )
     self:NetworkVar( "Float", 1, "NextGenerateAt" )
@@ -81,7 +101,7 @@ if SERVER then
     end
 
     function ENT:Initialize()
-        self:SetModel( "models/props_lab/servers.mdl" )
+        self:SetModel( generatorModels[ math.random( #generatorModels ) ] )
         self:SetMoveType( MOVETYPE_NONE )
         self:SetSolid( SOLID_VPHYSICS )
         self:PhysicsInit( SOLID_VPHYSICS )
@@ -111,17 +131,18 @@ if SERVER then
         self._HumanUseUntil = CurTime() + 0.2
     end
 
-    function ENT:ProduceSalvage( teamName )
-        if !LambdaTeams or !LambdaTeams.SpawnGeneratorSalvage then return end
+	function ENT:ProduceSalvage( teamName )
+		if !LambdaTeams or !LambdaTeams.SpawnGeneratorSalvage then return end
 
-        local outPos = self:GetPos() + self:GetForward() * 36 + Vector( 0, 0, 28 )
-        LambdaTeams:SpawnGeneratorSalvage( outPos, SR_Yield() )
+		local offsets = GetGeneratorOffsets( self )
+		local outPos = self:LocalToWorld( offsets.output )
+		LambdaTeams:SpawnGeneratorSalvage( outPos, SR_Yield() )
 
-        self:SetProgress( 0 )
-        self:SetWorkingTeam( teamName or "" )
-        self:SetNextGenerateAt( CurTime() + SR_Cooldown() )
-        self:EmitSound( "buttons/button17.wav", 70, 105 )
-    end
+		self:SetProgress( 0 )
+		self:SetWorkingTeam( teamName or "" )
+		self:SetNextGenerateAt( CurTime() + SR_Cooldown() )
+		self:EmitSound( "buttons/button17.wav", 70, 105 )
+	end
 
     function ENT:Think()
         if !SR_Enabled() or !SR_GamemodeActive() then
@@ -219,7 +240,8 @@ if SERVER then
 		if !IsValid( lp ) then return end
 		if lp:EyePos():DistToSqr( self:GetPos() ) > ( 5000 * 5000 ) then return end
 
-		local pos = self:LocalToWorld( Vector( 0, 0, self:OBBMaxs().z + 12 ) )
+		local offsets = GetGeneratorOffsets( self )
+		local pos = self:LocalToWorld( Vector( 0, 0, self:OBBMaxs().z + 12 ) + offsets.panel )
 
 		local toEye = lp:EyePos() - pos
 		toEye.z = 0
